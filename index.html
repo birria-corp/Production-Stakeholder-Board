@@ -797,9 +797,11 @@ function App() {
     }
   };
 
-  const exportData = () => {
+  const LS_LAST_EXPORT = 'sb_last_export';
+
+  const exportData = (silent = false) => {
     const payload = {
-      _meta: { exportedAt: now(), version: '1.0', itemCount: items.length },
+      _meta: { exportedAt: now(), version: APP_VERSION, itemCount: items.length },
       items,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -807,8 +809,20 @@ function App() {
     a.href = URL.createObjectURL(blob);
     a.download = 'stakeholder-board-' + today() + '.json';
     a.click();
-    showToast('✓ Exported ' + items.length + ' items');
+    try { localStorage.setItem(LS_LAST_EXPORT, today()); } catch(_) {}
+    if (!silent) showToast('✓ Exported ' + items.length + ' items');
   };
+
+  // Auto-export if no export in the last 4 days
+  React.useEffect(() => {
+    if (items.length === 0) return; // nothing to export on first load
+    try {
+      const last = localStorage.getItem(LS_LAST_EXPORT);
+      if (!last) { exportData(true); return; }
+      const daysSince = (new Date(today()) - new Date(last)) / (1000 * 60 * 60 * 24);
+      if (daysSince >= 4) exportData(true);
+    } catch(_) {}
+  }, []); // run once on mount
 
   const importData = data => {
     const sanitized = data.items.map(i => ({

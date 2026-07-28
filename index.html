@@ -155,7 +155,32 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 .log-add textarea{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px 9px;font-size:0.75rem;font-family:inherit;resize:none;min-height:52px;line-height:1.5}
 .log-add textarea:focus{outline:none;border-color:var(--accent)}
 
-/* MEETING PANEL */
+/* PROGRESS BAR */
+.prog-wrap{margin-top:7px}
+.prog-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.prog-label{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted)}
+.prog-val{font-size:0.68rem;font-weight:800;color:var(--text)}
+.prog-track{height:5px;border-radius:3px;background:var(--surface3);overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .2s}
+.prog-slider{width:100%;margin-top:6px;accent-color:var(--completed)}
+/* mini bar for stack/bucket */
+.mini-prog{display:flex;align-items:center;gap:6px;margin-top:5px}
+.mini-prog-track{flex:1;height:3px;border-radius:2px;background:var(--surface3);overflow:hidden}
+.mini-prog-fill{height:100%;border-radius:2px}
+.mini-prog-val{font-size:0.6rem;font-weight:800;color:var(--muted);flex-shrink:0;min-width:24px;text-align:right}
+
+/* TAG CHIPS */
+.tag-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:var(--surface3);border:1px solid var(--border);border-radius:3px;font-size:0.63rem;color:var(--muted)}
+.tag-chip-x{cursor:pointer;opacity:.6;font-size:0.7rem;line-height:1}
+.tag-chip-x:hover{opacity:1;color:#ef4444}
+.combo-wrap{position:relative}
+.combo-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px 9px;font-size:0.8rem;font-family:inherit}
+.combo-input:focus{outline:none;border-color:var(--accent)}
+.combo-drop{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:5px;z-index:50;max-height:160px;overflow-y:auto}
+.combo-opt{padding:6px 10px;font-size:0.78rem;cursor:pointer;transition:background .1s}
+.combo-opt:hover{background:var(--surface3)}
+.combo-opt.new{color:var(--accent)}
+.tag-chips-row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
 .meet-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--upnext);z-index:150;transition:height .2s ease}
 .meet-bar-handle{height:44px;display:flex;align-items:center;padding:0 20px;gap:10px;cursor:pointer;user-select:none}
 .meet-bar-label{font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--upnext);flex:1}
@@ -189,7 +214,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.0';
+const APP_VERSION = '1.1';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -267,10 +292,122 @@ const buildSummary = (items, meeting) => {
   return lines.join('\n');
 };
 
+// ── HELPERS ───────────────────────────────────────────────────────────────
+const progColor = pct => {
+  // 0% = yellow (#eab308), 100% = green (#22c55e)
+  const r = Math.round(234 + (34-234)*(pct/100));
+  const g = Math.round(179 + (197-179)*(pct/100));
+  const b = Math.round(8   + (94-8)  *(pct/100));
+  return `rgb(${r},${g},${b})`;
+};
+
+// Mini progress bar for stack rows and bucket cards
+function MiniProg({pct}) {
+  if (pct == null || pct === 0) return null;
+  return (
+    <div className="mini-prog">
+      <div className="mini-prog-track">
+        <div className="mini-prog-fill" style={{width:pct+'%',background:progColor(pct)}}/>
+      </div>
+      <span className="mini-prog-val">{pct}%</span>
+    </div>
+  );
+}
+
+// Tag combo input
+function TagCombo({selected, onChange, allTags}) {
+  const [q, setQ] = React.useState('');
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef();
+
+  React.useEffect(()=>{
+    const h = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown',h);
+    return ()=>document.removeEventListener('mousedown',h);
+  },[]);
+
+  const opts = allTags.filter(t=>!selected.includes(t)&&t.toLowerCase().includes(q.toLowerCase()));
+  const add = t => { onChange([...selected, t]); setQ(''); setOpen(false); };
+  const remove = t => onChange(selected.filter(x=>x!==t));
+
+  return (
+    <div ref={ref}>
+      {selected.length>0 && (
+        <div className="tag-chips-row">
+          {selected.map(t=>(
+            <span key={t} className="tag-chip">
+              {t}<span className="tag-chip-x" onClick={()=>remove(t)}>✕</span>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="combo-wrap">
+        <input
+          className="combo-input"
+          value={q}
+          placeholder="Search or add tag…"
+          onChange={e=>{setQ(e.target.value);setOpen(true);}}
+          onFocus={()=>setOpen(true)}
+          onKeyDown={e=>{
+            if(e.key==='Enter'&&q.trim()){add(q.trim());}
+            if(e.key==='Escape'){setOpen(false);setQ('');}
+          }}
+        />
+        {open && (opts.length>0||(q.trim()&&!allTags.includes(q.trim()))) && (
+          <div className="combo-drop">
+            {opts.map(t=><div key={t} className="combo-opt" onMouseDown={()=>add(t)}>{t}</div>)}
+            {q.trim()&&!allTags.includes(q.trim())&&!selected.includes(q.trim())&&(
+              <div className="combo-opt new" onMouseDown={()=>add(q.trim())}>＋ Add "{q.trim()}"</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Owner combo input
+function OwnerCombo({value, onChange, allOwners}) {
+  const [q, setQ] = React.useState(value||'');
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef();
+
+  React.useEffect(()=>{ setQ(value||''); },[value]);
+
+  React.useEffect(()=>{
+    const h = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown',h);
+    return ()=>document.removeEventListener('mousedown',h);
+  },[]);
+
+  const opts = allOwners.filter(o=>o.toLowerCase().includes(q.toLowerCase())&&o!==q);
+
+  return (
+    <div className="combo-wrap" ref={ref}>
+      <input
+        className="combo-input"
+        value={q}
+        placeholder="Name or team…"
+        onChange={e=>{setQ(e.target.value);onChange(e.target.value);setOpen(true);}}
+        onFocus={()=>setOpen(true)}
+        onKeyDown={e=>{ if(e.key==='Escape') setOpen(false); }}
+      />
+      {open && opts.length>0 && (
+        <div className="combo-drop">
+          {opts.map(o=>(
+            <div key={o} className="combo-opt" onMouseDown={()=>{onChange(o);setQ(o);setOpen(false);}}>{o}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── DRAWER ────────────────────────────────────────────────────────────────
-function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
+function ItemDrawer({item, onClose, onSave, onDelete, onArchive, allTags, allOwners}) {
   const isNew = !item.id || item._isNew;
-  const [f, setF] = React.useState({...item, tags:(item.tags||[]).join(', ')});
+  const initTags = Array.isArray(item.tags) ? item.tags : (item.tags||'').split(',').map(t=>t.trim()).filter(Boolean);
+  const [f, setF] = React.useState({...item, tags: initTags, progress: item.progress??0});
   const [newLog, setNewLog] = React.useState('');
   const set = (k,v) => setF(p=>({...p,[k]:v}));
 
@@ -296,8 +433,7 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
 
   const submit = () => {
     if (!f.title.trim()) return;
-    const tags = f.tags.split(',').map(t=>t.trim()).filter(Boolean);
-    const wasActive = ACTIVE_SECTIONS.find(s=>s.key===item.section);
+    const tags = Array.isArray(f.tags) ? f.tags : f.tags.split(',').map(t=>t.trim()).filter(Boolean);
     const nowCompleted = f.section === 'completed';
     const nowPurgatory = f.section === 'purgatory';
     const extra = {};
@@ -305,9 +441,7 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
       extra.completedAt = today();
       extra.pendingMeetingClose = true;
     }
-    if (nowPurgatory) {
-      extra.purgatoryAt = today();
-    }
+    if (nowPurgatory) { extra.purgatoryAt = today(); }
     onSave({...f, tags, ...extra, updatedAt:today()});
     onClose();
   };
@@ -321,7 +455,7 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
           <button className="btn btn-icon" onClick={onClose}>✕</button>
         </div>
         <div className="drawer-bd">
-          <div className="field">
+          <div className="field" onClick={e=>e.stopPropagation()}>
             <label>Title *</label>
             <input value={f.title} onChange={e=>set('title',e.target.value)} autoFocus placeholder="Describe the ask"/>
           </div>
@@ -339,6 +473,27 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
               </select>
             </div>
           </div>
+
+          {f.section === 'ongoing' && (
+            <div className="field">
+              <label>Progress</label>
+              <div className="prog-wrap">
+                <div className="prog-label-row">
+                  <span className="prog-label">0%</span>
+                  <span className="prog-val">{f.progress??0}%</span>
+                  <span className="prog-label">100%</span>
+                </div>
+                <div className="prog-track">
+                  <div className="prog-fill" style={{width:(f.progress??0)+'%',background:progColor(f.progress??0)}}/>
+                </div>
+                <input type="range" min="0" max="100" step="5" value={f.progress??0}
+                  onChange={e=>set('progress',Number(e.target.value))}
+                  className="prog-slider"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="field">
             <label>Current Status / Summary <span style={{fontWeight:400,textTransform:'none',fontSize:'0.62rem'}}>(shown on card)</span></label>
             <textarea value={f.summary} onChange={e=>set('summary',e.target.value)} placeholder="Where things stand right now"/>
@@ -346,7 +501,7 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
           <div className="field-row">
             <div className="field">
               <label>Owner</label>
-              <input value={f.owner||''} onChange={e=>set('owner',e.target.value)} placeholder="Name or team"/>
+              <OwnerCombo value={f.owner||''} onChange={v=>set('owner',v)} allOwners={allOwners}/>
             </div>
             <div className="field">
               <label>Due Date</label>
@@ -354,8 +509,8 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
             </div>
           </div>
           <div className="field">
-            <label>Tags (comma-separated)</label>
-            <input value={f.tags} onChange={e=>set('tags',e.target.value)} placeholder="Snowflake, Finance…"/>
+            <label>Tags</label>
+            <TagCombo selected={Array.isArray(f.tags)?f.tags:[]} onChange={v=>set('tags',v)} allTags={allTags}/>
           </div>
 
           <hr className="div"/>
@@ -445,6 +600,7 @@ function PriorityStack({items, setItems, onOpen}) {
   const renderRow = (item, idx, isCompleted) => {
     const sec = SEC_MAP[item.section]||{};
     const dt  = dropTarget?.id===item.id;
+    const showProg = !isCompleted && item.section==='ongoing' && item.progress > 0;
     return (
       <div
         key={item.id}
@@ -464,13 +620,13 @@ function PriorityStack({items, setItems, onOpen}) {
         <div className="prow-handle" style={{color:isCompleted?'transparent':'',cursor:isCompleted?'default':'grab'}}>{isCompleted?'✓':'⠿'}</div>
         <div className="prow-num">{isCompleted ? '✓' : idx+1}</div>
         <div className="prow-bar" style={{background:sec.dot||'transparent'}}/>
-        <div className="prow-body">
-          <span className="prow-title">{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
-          <span className={'prow-sec '+sec.badgeCls}>{sec.label}</span>
-          <span className={'prow-pri pri-'+item.priority}>{item.priority}</span>
-        </div>
-        <div className="prow-open">
-          <button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button>
+        <div className="prow-body" style={{flexDirection:'column',alignItems:'flex-start',gap:3,cursor:'pointer'}} onClick={()=>onOpen(item)}>
+          <div style={{display:'flex',alignItems:'center',gap:8,width:'100%'}}>
+            <span className="prow-title">{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
+            <span className={'prow-sec '+sec.badgeCls}>{sec.label}</span>
+            <span className={'prow-pri pri-'+item.priority}>{item.priority}</span>
+          </div>
+          {showProg && <MiniProg pct={item.progress}/>}
         </div>
       </div>
     );
@@ -565,14 +721,16 @@ function BucketCols({items, setItems, onOpen}) {
             <div className={'col-body'+(dropCol===col.key?' drop-over':'')}>
               {ci.length===0 && <div style={{fontSize:'0.72rem',color:'var(--muted)',padding:'8px 4px',textAlign:'center'}}>Empty</div>}
               {ci.map((item,idx)=>{
-                const sec = SEC_MAP[item.section];
+                const isOngoing = item.section === 'ongoing';
+                const showProg = isOngoing && item.progress > 0;
                 return (
-                  <div key={item.id} className="bcard">
+                  <div key={item.id} className="bcard" style={{cursor:'pointer'}} onClick={()=>onOpen(item)}>
                     <div className="bcard-top">
                       <span style={{fontSize:'0.62rem',fontWeight:800,color:'var(--muted)',paddingTop:2,minWidth:14}}>{idx+1}</span>
                       <span className="bcard-title">{item.title}</span>
                       <span className={'bcard-pri pri-'+item.priority}>{item.priority}</span>
                     </div>
+                    {showProg && <MiniProg pct={item.progress}/>}
                     {item.summary && <div className="bcard-summary">{item.summary.length>80?item.summary.slice(0,80)+'…':item.summary}</div>}
                     {(item.tags?.length>0||item.owner||item.dueDate) && (
                       <div className="bcard-footer">
@@ -581,9 +739,6 @@ function BucketCols({items, setItems, onOpen}) {
                         {item.dueDate && <span className="tag">📅 {item.dueDate}</span>}
                       </div>
                     )}
-                    <div className="bcard-actions">
-                      <button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button>
-                    </div>
                   </div>
                 );
               })}
@@ -618,10 +773,9 @@ function CompletedSection({items, onOpen}) {
           </div>
           <div className="completed-grid">
             {completed.map(item=>(
-              <div key={item.id} className="completed-card">
+              <div key={item.id} className="completed-card" style={{cursor:'pointer'}} onClick={()=>onOpen(item)}>
                 <div className="completed-card-title">{item.title}</div>
                 <div className="completed-card-date">Completed {item.completedAt||'—'}</div>
-                <div style={{marginTop:6}}><button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button></div>
               </div>
             ))}
           </div>
@@ -638,10 +792,9 @@ function CompletedSection({items, onOpen}) {
           </div>
           <div className="completed-grid">
             {purgatory.map(item=>(
-              <div key={item.id} className="completed-card" style={{borderLeftColor:'#f59e0b'}}>
+              <div key={item.id} className="completed-card" style={{borderLeftColor:'#f59e0b',cursor:'pointer'}} onClick={()=>onOpen(item)}>
                 <div className="completed-card-title">{item.title}</div>
                 <div className="completed-card-date">Parked {item.purgatoryAt||item.updatedAt||'—'}</div>
-                <div style={{marginTop:6}}><button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button></div>
               </div>
             ))}
           </div>
@@ -659,10 +812,9 @@ function CompletedSection({items, onOpen}) {
           {showCompArch && (
             <div className="completed-grid">
               {compArch.map(item=>(
-                <div key={item.id} className="completed-card" style={{opacity:.65}}>
+                <div key={item.id} className="completed-card" style={{opacity:.65,cursor:'pointer'}} onClick={()=>onOpen(item)}>
                   <div className="completed-card-title">{item.title}</div>
                   <div className="completed-card-date">Completed {item.completedAt||'—'}</div>
-                  <div style={{marginTop:6}}><button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button></div>
                 </div>
               ))}
             </div>
@@ -915,6 +1067,9 @@ function App() {
 
   const LS_LAST_EXPORT = 'sb_last_export';
 
+  const allTags   = React.useMemo(()=>[...new Set(items.flatMap(i=>i.tags||[]))].sort(),[items]);
+  const allOwners = React.useMemo(()=>[...new Set(items.map(i=>i.owner).filter(Boolean))].sort(),[items]);
+
   const exportData = (silent = false) => {
     const payload = {
       _meta: { exportedAt: now(), version: APP_VERSION, itemCount: items.length },
@@ -1007,6 +1162,8 @@ function App() {
           onSave={saveItem}
           onDelete={deleteItem}
           onArchive={archiveItem}
+          allTags={allTags}
+          allOwners={allOwners}
         />
       )}
 

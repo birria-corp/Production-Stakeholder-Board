@@ -3,7 +3,7 @@
 > A stakeholder request tracker for Data Product Owners. Maintains a drag-ordered priority stack, active work buckets, meeting mode with attendee management, and a clipboard-ready meeting summary. Runs entirely in the browser — no server, no account required.
 
 **Live app:** `https://spencer-thompson-2-vu.github.io/Production-Stakeholder-Board`
-**Current version:** v1.2
+**Current version:** v1.3
 
 ---
 
@@ -71,6 +71,7 @@
 
 | Version | Changes |
 |---------|---------|
+| v1.3 | Segmented 10-cell progress bar (yellow→green gradient) · Bar displays inline with title on priority stack row · No percentage labels on stack or bucket card views · Hover bar for exact percentage tooltip |
 | v1.2 | Click any card/row to open drawer · Progress slider on In Progress cards (yellow→green, shown on stack + bucket) · Tag combo with chip selection and new tag creation · Owner combo with searchable existing owners |
 | v1.1 | Two-zone priority stack (Completed This Cycle + Active Priority) · Purgatory bucket for de-prioritized items · Completed Archive separate from general Archive · Bucket dropdown in card drawer includes Completed and Purgatory · Auto-export JSON backup if no export in last 4 days · Version check button in topbar |
 | v1.0 | Initial release — priority stack, active buckets, meeting mode, export/import |

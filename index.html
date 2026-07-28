@@ -126,6 +126,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .sec-horizon{color:var(--horizon);background:rgba(91,124,246,.12)}
 .sec-newstuff{color:var(--newask);background:rgba(167,139,250,.12)}
 .sec-completed{color:var(--completed);background:rgba(34,197,94,.12)}
+.sec-purgatory{color:#f59e0b;background:rgba(245,158,11,.12)}
+.sec-arch-comp{color:var(--muted);background:rgba(107,114,128,.12)}
 
 /* DRAWER */
 .drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;backdrop-filter:blur(2px)}
@@ -197,8 +199,10 @@ const BUCKET_COLS = [
   { key:'horizon',  label:'On Horizon',  dot:'#5b7cf6' },
 ];
 const ALL_SECTIONS = [...ACTIVE_SECTIONS,
-  { key:'completed', label:'Completed', dot:'#22c55e', badgeCls:'sec-completed' },
-  { key:'archive',   label:'Archive',   dot:'#6b7280', badgeCls:'sec-archive'   },
+  { key:'completed',         label:'Completed',         dot:'#22c55e', badgeCls:'sec-completed'  },
+  { key:'purgatory',         label:'Purgatory',         dot:'#f59e0b', badgeCls:'sec-purgatory'  },
+  { key:'completed-archive', label:'Completed Archive', dot:'#6b7280', badgeCls:'sec-arch-comp'  },
+  { key:'archive',           label:'Archive',           dot:'#6b7280', badgeCls:'sec-archive'    },
 ];
 const SEC_MAP = Object.fromEntries(ALL_SECTIONS.map(s=>[s.key,s]));
 const PRIORITIES = ['Critical','High','Medium','Low','Backlog'];
@@ -219,9 +223,17 @@ const blankItem = (section='newstuff') => ({
   pendingMeetingClose:false,
 });
 
-// Items in priority stack = active sections + completed that haven't been through a meeting close
-const stackItems = items =>
-  items.filter(i => ACTIVE_SECTIONS.find(s=>s.key===i.section) || (i.section==='completed' && i.pendingMeetingClose));
+// Items in priority stack = active sections + completed pending meeting close
+// Completed sort: oldest completedAt first (top of stack), active items below sorted by stackRank
+const stackItems = items => {
+  const completed = items
+    .filter(i => i.section==='completed' && i.pendingMeetingClose)
+    .sort((a,b)=>(a.completedAt||'').localeCompare(b.completedAt||''));
+  const active = items
+    .filter(i => ACTIVE_SECTIONS.find(s=>s.key===i.section))
+    .sort((a,b)=>(a.stackRank??999)-(b.stackRank??999));
+  return [...completed, ...active];
+};
 
 // Build clipboard summary
 const buildSummary = (items, meeting) => {
@@ -269,16 +281,29 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
     setNewLog('');
   };
 
+  const DRAWER_SECTIONS = [
+    { key:'completed', label:'Completed'   },
+    { key:'ongoing',   label:'In Progress' },
+    { key:'upnext',    label:'Up Next'     },
+    { key:'horizon',   label:'On Horizon'  },
+    { key:'purgatory', label:'Purgatory'   },
+  ];
+
   const submit = () => {
     if (!f.title.trim()) return;
     const tags = f.tags.split(',').map(t=>t.trim()).filter(Boolean);
-    onSave({...f, tags, updatedAt:today()});
-    onClose();
-  };
-
-  const markComplete = () => {
-    const tags = f.tags.split(',').map(t=>t.trim()).filter(Boolean);
-    onSave({...f, tags, section:'completed', completedAt:today(), pendingMeetingClose:true, updatedAt:today()});
+    const wasActive = ACTIVE_SECTIONS.find(s=>s.key===item.section);
+    const nowCompleted = f.section === 'completed';
+    const nowPurgatory = f.section === 'purgatory';
+    const extra = {};
+    if (nowCompleted && !item.completedAt) {
+      extra.completedAt = today();
+      extra.pendingMeetingClose = true;
+    }
+    if (nowPurgatory) {
+      extra.purgatoryAt = today();
+    }
+    onSave({...f, tags, ...extra, updatedAt:today()});
     onClose();
   };
 
@@ -299,7 +324,7 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
             <div className="field">
               <label>Bucket</label>
               <select value={f.section} onChange={e=>set('section',e.target.value)}>
-                {ACTIVE_SECTIONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+                {DRAWER_SECTIONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
               </select>
             </div>
             <div className="field">
@@ -344,10 +369,8 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
         </div>
         <div className="drawer-ft">
           <button className="btn btn-danger btn-sm" onClick={()=>{if(window.confirm('Delete permanently?')){onDelete(f.id);onClose();}}}>Delete</button>
-          <button className="btn btn-archive btn-sm" onClick={()=>{onArchive(f.id);onClose();}}>Archive</button>
-          {!['completed','archive'].includes(f.section) && (
-            <button className="btn btn-success btn-sm" onClick={markComplete}>✓ Complete</button>
-          )}
+          <button className="btn btn-archive btn-sm" onClick={()=>{onArchive(f.id,'completed-archive');onClose();}} title="Move to Completed Archive">C-Archive</button>
+          <button className="btn btn-archive btn-sm" onClick={()=>{onArchive(f.id,'archive');onClose();}} title="Move to Purgatory Archive">Archive</button>
           <button className="btn btn-sm" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary btn-sm" onClick={submit}>Save</button>
         </div>
@@ -419,7 +442,6 @@ function PriorityStack({items, setItems, onOpen}) {
 
       {stack.map((item,idx)=>{
         const sec = SEC_MAP[item.section]||{};
-        const isCompleted = item.section==='completed';
         const dt = dropTarget?.id===item.id;
         return (
           <div
@@ -427,7 +449,7 @@ function PriorityStack({items, setItems, onOpen}) {
             className={
               'prow'+
               (item.id===dragId?' dragging':'')+
-              (isCompleted?' completed-row':'')+
+              (item.section==='completed'?' completed-row':'')+
               (dt&&dropTarget.pos==='above'?' drag-above':'')+
               (dt&&dropTarget.pos==='below'?' drag-below':'')
             }
@@ -441,7 +463,7 @@ function PriorityStack({items, setItems, onOpen}) {
             <div className="prow-num">{idx+1}</div>
             <div className="prow-bar" style={{background:sec.dot||'transparent'}}/>
             <div className="prow-body">
-              <span className="prow-title" style={{textDecoration:isCompleted?'line-through':''}}>{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
+              <span className="prow-title">{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
               <span className={'prow-sec '+sec.badgeCls}>{sec.label}</span>
               <span className={'prow-pri pri-'+item.priority}>{item.priority}</span>
             </div>
@@ -535,24 +557,77 @@ function BucketCols({items, setItems, onOpen}) {
 
 // ── COMPLETED ROW ─────────────────────────────────────────────────────────
 function CompletedSection({items, onOpen}) {
-  const completed = items.filter(i=>i.section==='completed').sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
-  if (completed.length===0) return null;
+  const completed  = items.filter(i=>i.section==='completed').sort((a,b)=>(a.completedAt||'').localeCompare(b.completedAt||''));
+  const purgatory  = items.filter(i=>i.section==='purgatory').sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
+  const compArch   = items.filter(i=>i.section==='completed-archive').sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
+
+  const [showCompArch, setShowCompArch] = React.useState(false);
+
+  if (completed.length===0 && purgatory.length===0 && compArch.length===0) return null;
+
   return (
-    <div className="completed-section">
-      <div className="section-head">
-        <span className="section-label">Completed</span>
-        <div className="section-rule"/>
-        <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>Items auto-archive after 30 days</span>
-      </div>
-      <div className="completed-grid">
-        {completed.map(item=>(
-          <div key={item.id} className="completed-card">
-            <div className="completed-card-title">{item.title}</div>
-            <div className="completed-card-date">Completed {item.completedAt||'—'}</div>
-            <div style={{marginTop:6}}><button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button></div>
+    <div>
+      {/* Completed */}
+      {completed.length > 0 && (
+        <div className="completed-section">
+          <div className="section-head">
+            <span className="section-label">Completed</span>
+            <div className="section-rule"/>
+            <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>Auto-archives after 30 days</span>
           </div>
-        ))}
-      </div>
+          <div className="completed-grid">
+            {completed.map(item=>(
+              <div key={item.id} className="completed-card">
+                <div className="completed-card-title">{item.title}</div>
+                <div className="completed-card-date">Completed {item.completedAt||'—'}</div>
+                <div style={{marginTop:6}}><button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Purgatory */}
+      {purgatory.length > 0 && (
+        <div className="completed-section">
+          <div className="section-head">
+            <span className="section-label" style={{color:'#f59e0b'}}>Purgatory</span>
+            <div className="section-rule"/>
+            <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>De-prioritized — not completed</span>
+          </div>
+          <div className="completed-grid">
+            {purgatory.map(item=>(
+              <div key={item.id} className="completed-card" style={{borderLeftColor:'#f59e0b'}}>
+                <div className="completed-card-title">{item.title}</div>
+                <div className="completed-card-date">Parked {item.purgatoryAt||item.updatedAt||'—'}</div>
+                <div style={{marginTop:6}}><button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completed Archive (collapsed by default) */}
+      {compArch.length > 0 && (
+        <div className="completed-section">
+          <div className="section-head" style={{cursor:'pointer'}} onClick={()=>setShowCompArch(s=>!s)}>
+            <span className="section-label" style={{color:'var(--muted)'}}>Completed Archive</span>
+            <div className="section-rule"/>
+            <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>{compArch.length} items · {showCompArch?'▲ collapse':'▼ expand'}</span>
+          </div>
+          {showCompArch && (
+            <div className="completed-grid">
+              {compArch.map(item=>(
+                <div key={item.id} className="completed-card" style={{opacity:.65}}>
+                  <div className="completed-card-title">{item.title}</div>
+                  <div className="completed-card-date">Completed {item.completedAt||'—'}</div>
+                  <div style={{marginTop:6}}><button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -757,7 +832,7 @@ function App() {
     setItems(prev=>prev.map(i=>{
       if (i.section==='completed' && !i.pendingMeetingClose && i.completedAt) {
         const d = new Date(i.completedAt);
-        if (d < cutoff) return {...i, section:'archive'};
+        if (d < cutoff) return {...i, section:'completed-archive'};
       }
       return i;
     }));
@@ -777,7 +852,7 @@ function App() {
     });
   };
   const deleteItem = id => setItems(p=>p.filter(i=>i.id!==id));
-  const archiveItem = id => setItems(p=>p.map(i=>i.id===id?{...i,section:'archive',updatedAt:today()}:i));
+  const archiveItem = (id, targetSection='archive') => setItems(p=>p.map(i=>i.id===id?{...i,section:targetSection,updatedAt:today()}:i));
   const openItem = item => setDrawer(item);
 
   const checkForUpdate = async () => {

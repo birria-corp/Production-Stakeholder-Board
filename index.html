@@ -163,11 +163,11 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 .prog-track{height:5px;border-radius:3px;background:var(--surface3);overflow:hidden}
 .prog-fill{height:100%;border-radius:3px;transition:width .2s}
 .prog-slider{width:100%;margin-top:6px;accent-color:var(--completed)}
-/* mini bar for stack/bucket */
-.mini-prog{display:flex;align-items:center;gap:6px;margin-top:5px}
-.mini-prog-track{flex:1;height:3px;border-radius:2px;background:var(--surface3);overflow:hidden}
-.mini-prog-fill{height:100%;border-radius:2px}
-.mini-prog-val{font-size:0.6rem;font-weight:800;color:var(--muted);flex-shrink:0;min-width:24px;text-align:right}
+/* mini bar for stack/bucket — segmented cells */
+.mini-prog{display:inline-flex;align-items:center;gap:2px;flex-shrink:0}
+.mini-prog-cell{width:8px;height:12px;border-radius:2px;border:1px solid rgba(255,255,255,0.06)}
+.mini-prog-cell.filled{}
+.mini-prog-cell.empty{background:var(--surface3)!important}
 
 /* TAG CHIPS */
 .tag-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:var(--surface3);border:1px solid var(--border);border-radius:3px;font-size:0.63rem;color:var(--muted)}
@@ -301,15 +301,27 @@ const progColor = pct => {
   return `rgb(${r},${g},${b})`;
 };
 
-// Mini progress bar for stack rows and bucket cards
+// Mini segmented progress bar — 10 cells, yellow→green gradient, inline
 function MiniProg({pct}) {
-  if (pct == null || pct === 0) return null;
+  if (!pct) return null;
+  const filled = Math.round((pct / 100) * 10);
   return (
-    <div className="mini-prog">
-      <div className="mini-prog-track">
-        <div className="mini-prog-fill" style={{width:pct+'%',background:progColor(pct)}}/>
-      </div>
-      <span className="mini-prog-val">{pct}%</span>
+    <div className="mini-prog" title={pct + '%'}>
+      {Array.from({length:10},(_,i)=>{
+        const isFilled = i < filled;
+        // interpolate color per filled cell
+        const t = filled <= 1 ? 0 : i / (filled - 1);
+        const r = Math.round(234 + (34-234)*t);
+        const g = Math.round(179 + (197-179)*t);
+        const b = Math.round(8   + (94-8)  *t);
+        return (
+          <div
+            key={i}
+            className={'mini-prog-cell'+(isFilled?' filled':' empty')}
+            style={isFilled ? {background:`rgb(${r},${g},${b})`} : {}}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -480,7 +492,6 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive, allTags, allOwn
               <div className="prog-wrap">
                 <div className="prog-label-row">
                   <span className="prog-label">0%</span>
-                  <span className="prog-val">{f.progress??0}%</span>
                   <span className="prog-label">100%</span>
                 </div>
                 <div className="prog-track">
@@ -620,13 +631,11 @@ function PriorityStack({items, setItems, onOpen}) {
         <div className="prow-handle" style={{color:isCompleted?'transparent':'',cursor:isCompleted?'default':'grab'}}>{isCompleted?'✓':'⠿'}</div>
         <div className="prow-num">{isCompleted ? '✓' : idx+1}</div>
         <div className="prow-bar" style={{background:sec.dot||'transparent'}}/>
-        <div className="prow-body" style={{flexDirection:'column',alignItems:'flex-start',gap:3,cursor:'pointer'}} onClick={()=>onOpen(item)}>
-          <div style={{display:'flex',alignItems:'center',gap:8,width:'100%'}}>
-            <span className="prow-title">{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
-            <span className={'prow-sec '+sec.badgeCls}>{sec.label}</span>
-            <span className={'prow-pri pri-'+item.priority}>{item.priority}</span>
-          </div>
+        <div className="prow-body" style={{cursor:'pointer'}} onClick={()=>onOpen(item)}>
+          <span className="prow-title">{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
           {showProg && <MiniProg pct={item.progress}/>}
+          <span className={'prow-sec '+sec.badgeCls}>{sec.label}</span>
+          <span className={'prow-pri pri-'+item.priority}>{item.priority}</span>
         </div>
       </div>
     );

@@ -1,77 +1,1197 @@
-# Production Stakeholder Board
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Production Stakeholder Board</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0e14;--surface:#13151f;--surface2:#1c1f2e;--surface3:#232738;
+  --border:#2a2e44;--border2:#353a55;
+  --text:#dde3f0;--muted:#6b7499;
+  --accent:#5b7cf6;--accent2:#3d5ee0;
+  --ongoing:#f97316;--upnext:#eab308;--horizon:#5b7cf6;
+  --newask:#a78bfa;--completed:#22c55e;--archive:#6b7280;
+  --radius:8px;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
 
-> A stakeholder request tracker for Data Product Owners. Maintains a drag-ordered priority stack, active work buckets, meeting mode with attendee management, and a clipboard-ready meeting summary. Runs entirely in the browser — no server, no account required.
+/* TOP BAR */
+.topbar{height:50px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100}
+.topbar-brand{font-size:0.8rem;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;color:var(--accent);flex-shrink:0}
+.topbar-sep{width:1px;height:18px;background:var(--border)}
+.topbar-right{display:flex;gap:8px;align-items:center;margin-left:auto}
 
-**Live app:** `https://spencer-thompson-2-vu.github.io/Production-Stakeholder-Board`
-**Current version:** v1.3
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:0.74rem;font-weight:600;cursor:pointer;font-family:inherit;transition:background .12s,border-color .12s;white-space:nowrap}
+.btn:hover{background:var(--surface3);border-color:var(--accent)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn-danger{color:#ef4444;border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.07)}
+.btn-danger:hover{background:rgba(239,68,68,.15)}
+.btn-success{color:var(--completed);border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.07)}
+.btn-success:hover{background:rgba(34,197,94,.15)}
+.btn-archive{color:var(--archive);border-color:rgba(107,114,128,.3);background:rgba(107,114,128,.07)}
+.btn-archive:hover{background:rgba(107,114,128,.15)}
+.btn-warn{color:var(--upnext);border-color:rgba(234,179,8,.3);background:rgba(234,179,8,.07)}
+.btn-warn:hover{background:rgba(234,179,8,.15)}
+.btn-sm{padding:3px 9px;font-size:0.69rem}
+.btn-xs{padding:2px 7px;font-size:0.65rem}
+.btn-icon{padding:4px 8px;font-size:0.8rem}
 
----
+/* PAGE LAYOUT */
+.page{padding:20px 24px 80px;max-width:1400px;margin:0 auto}
 
-## Features
+/* SECTION HEADERS */
+.section-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.section-label{font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)}
+.section-rule{flex:1;height:1px;background:var(--border)}
 
-### Priority Stack
-- Unified drag-to-reorder list across all active buckets (New Asks, Up Next, In Progress, On Horizon)
-- Completed items stay in the stack until a meeting is closed
-- Quick-add row at the bottom — type a title, pick a bucket, and it lands at the bottom of the stack
-- Reordering here also reorders cards within their bucket column
+/* PRIORITY STACK */
+.pstack{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:28px}
+.pstack-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.pstack-title{font-size:0.78rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:var(--text);flex:1}
+.pstack-count{font-size:0.65rem;font-weight:700;color:var(--muted);background:var(--surface3);border:1px solid var(--border);border-radius:20px;padding:1px 8px}
 
-### Active Buckets
-- Three columns: **In Progress**, **Up Next**, **On Horizon**
-- Card rank mirrors the priority stack order
-- Add items directly to any column
+.prow{display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);transition:background .1s,opacity .12s;cursor:grab;position:relative;background:var(--surface)}
+.prow:last-child{border-bottom:none}
+.prow:hover{background:var(--surface2)}
+.prow.dragging{opacity:.3;background:var(--surface2)}
+.prow.drag-above::before{content:'';position:absolute;top:-1px;left:0;right:0;height:2px;background:var(--accent);z-index:2}
+.prow.drag-below::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--accent);z-index:2}
+.prow.completed-row{border-left:3px solid var(--completed)}
+.pzone-header{display:flex;align-items:center;gap:10px;padding:7px 14px;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.pzone-header:hover{background:var(--surface3)}
+.pzone-label{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em}
+.pzone-count{font-size:0.63rem;color:var(--muted);background:var(--surface3);border:1px solid var(--border);border-radius:20px;padding:1px 7px}
+.pzone-toggle{font-size:0.65rem;color:var(--muted);margin-left:auto}
 
-### Card Detail Drawer
-- Title, bucket, priority, owner, due date, tags
-- **Current Status / Summary** — freetext field shown on the card face
-- **Change Log** — append-only timestamped entries for criteria shifts and multi-step updates
-- **Complete** button — moves card to Completed and flags it as pending meeting close
-- **Archive** button — de-prioritizes without deleting
+.prow-num{width:38px;flex-shrink:0;font-size:0.65rem;font-weight:800;color:var(--muted);text-align:center;padding:10px 0;border-right:1px solid var(--border)}
+.prow-bar{width:3px;flex-shrink:0;align-self:stretch}
+.prow-body{flex:1;padding:9px 12px;min-width:0;display:flex;align-items:center;gap:10px}
+.prow-title{font-size:0.83rem;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow-sec{font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0}
+.prow-pri{font-size:0.63rem;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0}
+.prow-open{padding:0 12px;flex-shrink:0}
+.prow-handle{padding:0 10px;color:var(--muted);font-size:1rem;flex-shrink:0;cursor:grab;border-right:1px solid var(--border)}
+.prow-handle:hover{color:var(--text)}
 
-### Completed
-- Completed items display below the active buckets
-- Auto-archive after 30 days
-- Remain in the priority stack until a meeting is closed
+.prow-add{display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--border);background:var(--surface)}
+.prow-add-label{font-size:0.72rem;color:var(--muted);flex-shrink:0}
+.new-ask-row{display:flex;gap:8px;flex:1;align-items:center}
+.new-ask-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 9px;font-size:0.78rem;font-family:inherit}
+.new-ask-input:focus{outline:none;border-color:var(--accent)}
+.new-ask-select{background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:0.74rem;font-family:inherit;flex-shrink:0}
+.new-ask-select:focus{outline:none;border-color:var(--accent)}
 
-### Meeting Mode (bottom panel)
-- Persistent attendee list — add names once, click to select per meeting
-- Date field and freetext meeting notes
-- **Complete Meeting & Copy Summary** — copies full priority stack + attendees + notes to clipboard, then removes completed items from the stack
+/* BUCKET COLUMNS */
+.buckets{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px}
+.col{border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:var(--surface)}
+.col-head{display:flex;align-items:center;gap:8px;padding:10px 13px;background:var(--surface2);border-bottom:2px solid var(--border)}
+.col-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.col-htitle{font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;flex:1}
+.col-hcount{font-size:0.63rem;font-weight:700;color:var(--muted);background:var(--surface3);border:1px solid var(--border);border-radius:20px;padding:1px 7px}
+.col-body{padding:8px;min-height:80px;display:flex;flex-direction:column;gap:6px}
+.col-body.drop-over{background:rgba(91,124,246,.05);outline:1px dashed var(--accent)}
 
-### Data
-- All state persists in `localStorage` automatically
-- **Export JSON** — downloads a timestamped backup of all items
-- **Import JSON** — restore from any previous export (with validation and confirmation)
-- **↻ Update** — checks `version.json` on GitHub and prompts to reload if a newer version exists
+/* BUCKET CARDS */
+.bcard{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:9px 11px;transition:border-color .12s}
+.bcard:hover{border-color:var(--border2)}
+.bcard-top{display:flex;align-items:flex-start;gap:8px}
+.bcard-title{font-size:0.8rem;font-weight:600;flex:1;line-height:1.4}
+.bcard-pri{font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px}
+.bcard-summary{font-size:0.72rem;color:var(--muted);margin-top:5px;line-height:1.5}
+.bcard-footer{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.tag{font-size:0.62rem;color:var(--muted);background:var(--surface3);border:1px solid var(--border);border-radius:3px;padding:1px 6px}
+.bcard-actions{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+.col-add-btn{display:flex;align-items:center;gap:5px;padding:6px 8px;border:1px dashed var(--border2);border-radius:5px;color:var(--muted);font-size:0.7rem;cursor:pointer;background:none;font-family:inherit;width:100%;transition:all .12s;margin-top:2px}
+.col-add-btn:hover{color:var(--text);border-color:var(--accent);background:rgba(91,124,246,.04)}
 
----
+/* COMPLETED ROW */
+.completed-section{margin-bottom:28px}
+.completed-grid{display:flex;flex-wrap:wrap;gap:10px}
+.completed-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:9px 12px;border-left:3px solid var(--completed);min-width:200px;flex:1}
+.completed-card-title{font-size:0.8rem;font-weight:600}
+.completed-card-date{font-size:0.65rem;color:var(--muted);margin-top:3px}
 
-## File Structure
+/* PRIORITY BADGE COLORS */
+.pri-Critical{color:#ef4444;background:rgba(239,68,68,.12)}
+.pri-High{color:var(--ongoing);background:rgba(249,115,22,.12)}
+.pri-Medium{color:var(--upnext);background:rgba(234,179,8,.12)}
+.pri-Low{color:var(--muted);background:rgba(107,114,128,.12)}
+.pri-Backlog{color:var(--muted);background:rgba(107,114,128,.12)}
 
-```
-/
-├── index.html      ← Entire application
-├── version.json    ← Current version string (read by Update check)
-└── README.md       ← This file
-```
+/* SECTION BADGE COLORS */
+.sec-ongoing{color:var(--ongoing);background:rgba(249,115,22,.12)}
+.sec-upnext{color:var(--upnext);background:rgba(234,179,8,.12)}
+.sec-horizon{color:var(--horizon);background:rgba(91,124,246,.12)}
+.sec-newstuff{color:var(--newask);background:rgba(167,139,250,.12)}
+.sec-completed{color:var(--completed);background:rgba(34,197,94,.12)}
+.sec-purgatory{color:#f59e0b;background:rgba(245,158,11,.12)}
+.sec-arch-comp{color:var(--muted);background:rgba(107,114,128,.12)}
 
----
+/* DRAWER */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;backdrop-filter:blur(2px)}
+.drawer{position:fixed;right:0;top:0;bottom:0;width:430px;max-width:95vw;background:var(--surface);border-left:1px solid var(--border);z-index:201;display:flex;flex-direction:column}
+.drawer-hd{padding:16px 18px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.drawer-hd-title{font-size:0.9rem;font-weight:700;flex:1}
+.drawer-bd{flex:1;overflow-y:auto;padding:16px 18px}
+.drawer-ft{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px 9px;font-size:0.8rem;font-family:inherit;transition:border-color .12s}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--accent)}
+.field textarea{resize:vertical;min-height:68px;line-height:1.5}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
+.log-entry{border-left:2px solid var(--border2);padding:5px 10px;margin-bottom:7px}
+.log-date{font-size:0.62rem;color:var(--muted);font-weight:700;margin-bottom:2px}
+.log-text{font-size:0.75rem;color:var(--text)}
+.log-add{display:flex;gap:6px;margin-top:6px}
+.log-add textarea{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px 9px;font-size:0.75rem;font-family:inherit;resize:none;min-height:52px;line-height:1.5}
+.log-add textarea:focus{outline:none;border-color:var(--accent)}
 
-## Updating (pushing a new release)
+/* PROGRESS BAR */
+.prog-wrap{margin-top:7px}
+.prog-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.prog-label{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted)}
+.prog-val{font-size:0.68rem;font-weight:800;color:var(--text)}
+.prog-track{height:5px;border-radius:3px;background:var(--surface3);overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .2s}
+.prog-slider{width:100%;margin-top:6px;accent-color:var(--completed)}
+/* mini bar for stack/bucket — segmented cells */
+.mini-prog{display:inline-flex;align-items:center;gap:2px;flex-shrink:0}
+.mini-prog-cell{width:8px;height:12px;border-radius:2px;border:1px solid rgba(255,255,255,0.06)}
+.mini-prog-cell.filled{}
+.mini-prog-cell.empty{background:var(--surface3)!important}
 
-1. Make changes to `index.html`
-2. Bump `APP_VERSION` at the top of the script block — e.g. `'1.0'` → `'1.1'`
-3. Update `version.json` to match: `{ "version": "1.1" }`
-4. Commit both files with a descriptive message — e.g. `v1.1 — add tag filter to priority stack`
-5. GitHub Pages redeploys in ~60 seconds
-6. Open the live app → click **↻ Update** to get the new version
+/* TAG CHIPS */
+.tag-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:var(--surface3);border:1px solid var(--border);border-radius:3px;font-size:0.63rem;color:var(--muted)}
+.tag-chip-x{cursor:pointer;opacity:.6;font-size:0.7rem;line-height:1}
+.tag-chip-x:hover{opacity:1;color:#ef4444}
+.combo-wrap{position:relative}
+.combo-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px 9px;font-size:0.8rem;font-family:inherit}
+.combo-input:focus{outline:none;border-color:var(--accent)}
+.combo-drop{position:absolute;top:calc(100% + 3px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:5px;z-index:50;max-height:160px;overflow-y:auto}
+.combo-opt{padding:6px 10px;font-size:0.78rem;cursor:pointer;transition:background .1s}
+.combo-opt:hover{background:var(--surface3)}
+.combo-opt.new{color:var(--accent)}
+.tag-chips-row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.meet-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--upnext);z-index:150;transition:height .2s ease}
+.meet-bar-handle{height:44px;display:flex;align-items:center;padding:0 20px;gap:10px;cursor:pointer;user-select:none}
+.meet-bar-label{font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--upnext);flex:1}
+.meet-bar-body{padding:0 20px 16px;display:flex;gap:20px;flex-wrap:wrap}
+.mcol{flex:1;min-width:200px}
+.mcol-label{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px}
+.attendee-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:0.72rem;cursor:pointer;transition:all .12s;margin:2px}
+.attendee-chip.selected{background:rgba(234,179,8,.12);border-color:rgba(234,179,8,.4);color:var(--upnext)}
+.attendee-chip:hover{border-color:var(--border2)}
+.attendee-add{display:flex;gap:6px;margin-top:8px}
+.attendee-add input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:4px 8px;font-size:0.74rem;font-family:inherit}
+.attendee-add input:focus{outline:none;border-color:var(--accent)}
+.meet-date-input{background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:0.76rem;font-family:inherit;width:100%;margin-bottom:8px}
+.meet-date-input:focus{outline:none;border-color:var(--accent)}
 
----
+/* TOAST */
+.toast{position:fixed;bottom:54px;left:50%;transform:translateX(-50%);background:var(--completed);color:#0d1a0d;font-size:0.75rem;font-weight:700;padding:7px 16px;border-radius:20px;z-index:500;white-space:nowrap;pointer-events:none;transition:opacity .3s}
+.toast.hide{opacity:0}
 
-## Version History
+/* MODAL */
+.overlay-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;width:100%;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:0.92rem;font-weight:700;margin-bottom:14px}
 
-| Version | Changes |
-|---------|---------|
-| v1.3 | Segmented 10-cell progress bar (yellow→green gradient) · Bar displays inline with title on priority stack row · No percentage labels on stack or bucket card views · Hover bar for exact percentage tooltip |
-| v1.2 | Click any card/row to open drawer · Progress slider on In Progress cards (yellow→green, shown on stack + bucket) · Tag combo with chip selection and new tag creation · Owner combo with searchable existing owners |
-| v1.1 | Two-zone priority stack (Completed This Cycle + Active Priority) · Purgatory bucket for de-prioritized items · Completed Archive separate from general Archive · Bucket dropdown in card drawer includes Completed and Purgatory · Auto-export JSON backup if no export in last 4 days · Version check button in topbar |
-| v1.0 | Initial release — priority stack, active buckets, meeting mode, export/import |
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+// ── VERSION ───────────────────────────────────────────────────────────────
+const APP_VERSION = '1.1';
+
+// ── CONSTANTS ──────────────────────────────────────────────────────────────
+const ACTIVE_SECTIONS = [
+  { key:'newstuff',  label:'New Ask',      dot:'#a78bfa', badgeCls:'sec-newstuff'  },
+  { key:'upnext',    label:'Up Next',      dot:'#eab308', badgeCls:'sec-upnext'    },
+  { key:'ongoing',   label:'In Progress',  dot:'#f97316', badgeCls:'sec-ongoing'   },
+  { key:'horizon',   label:'On Horizon',   dot:'#5b7cf6', badgeCls:'sec-horizon'   },
+];
+const BUCKET_COLS = [
+  { key:'ongoing',  label:'In Progress', dot:'#f97316' },
+  { key:'upnext',   label:'Up Next',     dot:'#eab308' },
+  { key:'horizon',  label:'On Horizon',  dot:'#5b7cf6' },
+];
+const ALL_SECTIONS = [...ACTIVE_SECTIONS,
+  { key:'completed',         label:'Completed',         dot:'#22c55e', badgeCls:'sec-completed'  },
+  { key:'purgatory',         label:'Purgatory',         dot:'#f59e0b', badgeCls:'sec-purgatory'  },
+  { key:'completed-archive', label:'Completed Archive', dot:'#6b7280', badgeCls:'sec-arch-comp'  },
+  { key:'archive',           label:'Archive',           dot:'#6b7280', badgeCls:'sec-archive'    },
+];
+const SEC_MAP = Object.fromEntries(ALL_SECTIONS.map(s=>[s.key,s]));
+const PRIORITIES = ['Critical','High','Medium','Low','Backlog'];
+const LS = 'sb_v3';
+const uid   = () => Math.random().toString(36).slice(2,10);
+const today = () => new Date().toISOString().split('T')[0];
+const now   = () => new Date().toISOString();
+
+// ── PERSISTENCE ───────────────────────────────────────────────────────────
+const load = () => { try { const r=localStorage.getItem(LS); return r?JSON.parse(r):null; } catch(_){return null;} };
+const persist = s => { try { localStorage.setItem(LS,JSON.stringify(s)); } catch(_){} };
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+const blankItem = (section='newstuff') => ({
+  id:uid(), title:'', section, priority:'Medium',
+  summary:'', tags:[], owner:'', dueDate:'', log:[],
+  createdAt:today(), updatedAt:today(), completedAt:null,
+  pendingMeetingClose:false,
+});
+
+// Items in priority stack = active sections + completed pending meeting close
+// Completed sort: oldest completedAt first (top of stack), active items below sorted by stackRank
+const stackItems = items => {
+  const completed = items
+    .filter(i => i.section==='completed' && i.pendingMeetingClose)
+    .sort((a,b)=>(a.completedAt||'').localeCompare(b.completedAt||''));
+  const active = items
+    .filter(i => ACTIVE_SECTIONS.find(s=>s.key===i.section))
+    .sort((a,b)=>(a.stackRank??999)-(b.stackRank??999));
+  return [...completed, ...active];
+};
+
+// Build clipboard summary
+const buildSummary = (items, meeting) => {
+  const lines = [];
+  lines.push('STAKEHOLDER PRIORITY STACK');
+  const attendeeList = (meeting.selected||[]).join(', ');
+  lines.push('Meeting: '+(meeting.date||today())+(attendeeList?' · '+attendeeList:''));
+  lines.push('');
+  const stack = items.filter(i=>i.stackRank!=null).sort((a,b)=>a.stackRank-b.stackRank);
+  if (stack.length) {
+    lines.push('── PRIORITY ORDER ──');
+    stack.forEach((item,i)=>{
+      const sec = SEC_MAP[item.section];
+      lines.push((i+1)+'. ['+item.priority+'] '+item.title+' ('+sec.label+')');
+      if (item.summary) lines.push('   '+item.summary);
+    });
+    lines.push('');
+  }
+  const completed = items.filter(i=>i.section==='completed'&&i.pendingMeetingClose);
+  if (completed.length) {
+    lines.push('── COMPLETED THIS CYCLE ──');
+    completed.forEach(item=>lines.push('✓ '+item.title));
+    lines.push('');
+  }
+  if (meeting.notes) { lines.push('── NOTES ──'); lines.push(meeting.notes); }
+  return lines.join('\n');
+};
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+const progColor = pct => {
+  // 0% = yellow (#eab308), 100% = green (#22c55e)
+  const r = Math.round(234 + (34-234)*(pct/100));
+  const g = Math.round(179 + (197-179)*(pct/100));
+  const b = Math.round(8   + (94-8)  *(pct/100));
+  return `rgb(${r},${g},${b})`;
+};
+
+// Mini segmented progress bar — 10 cells, yellow→green gradient, inline
+function MiniProg({pct}) {
+  if (!pct) return null;
+  const filled = Math.round((pct / 100) * 10);
+  return (
+    <div className="mini-prog" title={pct + '%'}>
+      {Array.from({length:10},(_,i)=>{
+        const isFilled = i < filled;
+        // interpolate color per filled cell
+        const t = filled <= 1 ? 0 : i / (filled - 1);
+        const r = Math.round(234 + (34-234)*t);
+        const g = Math.round(179 + (197-179)*t);
+        const b = Math.round(8   + (94-8)  *t);
+        return (
+          <div
+            key={i}
+            className={'mini-prog-cell'+(isFilled?' filled':' empty')}
+            style={isFilled ? {background:`rgb(${r},${g},${b})`} : {}}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// Tag combo input
+function TagCombo({selected, onChange, allTags}) {
+  const [q, setQ] = React.useState('');
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef();
+
+  React.useEffect(()=>{
+    const h = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown',h);
+    return ()=>document.removeEventListener('mousedown',h);
+  },[]);
+
+  const opts = allTags.filter(t=>!selected.includes(t)&&t.toLowerCase().includes(q.toLowerCase()));
+  const add = t => { onChange([...selected, t]); setQ(''); setOpen(false); };
+  const remove = t => onChange(selected.filter(x=>x!==t));
+
+  return (
+    <div ref={ref}>
+      {selected.length>0 && (
+        <div className="tag-chips-row">
+          {selected.map(t=>(
+            <span key={t} className="tag-chip">
+              {t}<span className="tag-chip-x" onClick={()=>remove(t)}>✕</span>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="combo-wrap">
+        <input
+          className="combo-input"
+          value={q}
+          placeholder="Search or add tag…"
+          onChange={e=>{setQ(e.target.value);setOpen(true);}}
+          onFocus={()=>setOpen(true)}
+          onKeyDown={e=>{
+            if(e.key==='Enter'&&q.trim()){add(q.trim());}
+            if(e.key==='Escape'){setOpen(false);setQ('');}
+          }}
+        />
+        {open && (opts.length>0||(q.trim()&&!allTags.includes(q.trim()))) && (
+          <div className="combo-drop">
+            {opts.map(t=><div key={t} className="combo-opt" onMouseDown={()=>add(t)}>{t}</div>)}
+            {q.trim()&&!allTags.includes(q.trim())&&!selected.includes(q.trim())&&(
+              <div className="combo-opt new" onMouseDown={()=>add(q.trim())}>＋ Add "{q.trim()}"</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Owner combo input
+function OwnerCombo({value, onChange, allOwners}) {
+  const [q, setQ] = React.useState(value||'');
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef();
+
+  React.useEffect(()=>{ setQ(value||''); },[value]);
+
+  React.useEffect(()=>{
+    const h = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown',h);
+    return ()=>document.removeEventListener('mousedown',h);
+  },[]);
+
+  const opts = allOwners.filter(o=>o.toLowerCase().includes(q.toLowerCase())&&o!==q);
+
+  return (
+    <div className="combo-wrap" ref={ref}>
+      <input
+        className="combo-input"
+        value={q}
+        placeholder="Name or team…"
+        onChange={e=>{setQ(e.target.value);onChange(e.target.value);setOpen(true);}}
+        onFocus={()=>setOpen(true)}
+        onKeyDown={e=>{ if(e.key==='Escape') setOpen(false); }}
+      />
+      {open && opts.length>0 && (
+        <div className="combo-drop">
+          {opts.map(o=>(
+            <div key={o} className="combo-opt" onMouseDown={()=>{onChange(o);setQ(o);setOpen(false);}}>{o}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── DRAWER ────────────────────────────────────────────────────────────────
+function ItemDrawer({item, onClose, onSave, onDelete, onArchive, allTags, allOwners}) {
+  const isNew = !item.id || item._isNew;
+  const initTags = Array.isArray(item.tags) ? item.tags : (item.tags||'').split(',').map(t=>t.trim()).filter(Boolean);
+  const [f, setF] = React.useState({...item, tags: initTags, progress: item.progress??0});
+  const [newLog, setNewLog] = React.useState('');
+  const set = (k,v) => setF(p=>({...p,[k]:v}));
+
+  React.useEffect(()=>{
+    const h = e => { if(e.key==='Escape') onClose(); };
+    window.addEventListener('keydown',h);
+    return ()=>window.removeEventListener('keydown',h);
+  },[onClose]);
+
+  const addLog = () => {
+    if (!newLog.trim()) return;
+    set('log',[...(f.log||[]),{date:today(),text:newLog.trim()}]);
+    setNewLog('');
+  };
+
+  const DRAWER_SECTIONS = [
+    { key:'completed', label:'Completed'   },
+    { key:'ongoing',   label:'In Progress' },
+    { key:'upnext',    label:'Up Next'     },
+    { key:'horizon',   label:'On Horizon'  },
+    { key:'purgatory', label:'Purgatory'   },
+  ];
+
+  const submit = () => {
+    if (!f.title.trim()) return;
+    const tags = Array.isArray(f.tags) ? f.tags : f.tags.split(',').map(t=>t.trim()).filter(Boolean);
+    const nowCompleted = f.section === 'completed';
+    const nowPurgatory = f.section === 'purgatory';
+    const extra = {};
+    if (nowCompleted && !item.completedAt) {
+      extra.completedAt = today();
+      extra.pendingMeetingClose = true;
+    }
+    if (nowPurgatory) { extra.purgatoryAt = today(); }
+    onSave({...f, tags, ...extra, updatedAt:today()});
+    onClose();
+  };
+
+  return (
+    <>
+      <div className="drawer-overlay" onClick={onClose}/>
+      <div className="drawer">
+        <div className="drawer-hd">
+          <div className="drawer-hd-title">{isNew ? 'New Item' : 'Edit Item'}</div>
+          <button className="btn btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div className="drawer-bd">
+          <div className="field" onClick={e=>e.stopPropagation()}>
+            <label>Title *</label>
+            <input value={f.title} onChange={e=>set('title',e.target.value)} autoFocus placeholder="Describe the ask"/>
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Bucket</label>
+              <select value={f.section} onChange={e=>set('section',e.target.value)}>
+                {DRAWER_SECTIONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Priority</label>
+              <select value={f.priority} onChange={e=>set('priority',e.target.value)}>
+                {PRIORITIES.map(p=><option key={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {f.section === 'ongoing' && (
+            <div className="field">
+              <label>Progress</label>
+              <div className="prog-wrap">
+                <div className="prog-label-row">
+                  <span className="prog-label">0%</span>
+                  <span className="prog-label">100%</span>
+                </div>
+                <div className="prog-track">
+                  <div className="prog-fill" style={{width:(f.progress??0)+'%',background:progColor(f.progress??0)}}/>
+                </div>
+                <input type="range" min="0" max="100" step="5" value={f.progress??0}
+                  onChange={e=>set('progress',Number(e.target.value))}
+                  className="prog-slider"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="field">
+            <label>Current Status / Summary <span style={{fontWeight:400,textTransform:'none',fontSize:'0.62rem'}}>(shown on card)</span></label>
+            <textarea value={f.summary} onChange={e=>set('summary',e.target.value)} placeholder="Where things stand right now"/>
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Owner</label>
+              <OwnerCombo value={f.owner||''} onChange={v=>set('owner',v)} allOwners={allOwners}/>
+            </div>
+            <div className="field">
+              <label>Due Date</label>
+              <input type="date" value={f.dueDate||''} onChange={e=>set('dueDate',e.target.value)}/>
+            </div>
+          </div>
+          <div className="field">
+            <label>Tags</label>
+            <TagCombo selected={Array.isArray(f.tags)?f.tags:[]} onChange={v=>set('tags',v)} allTags={allTags}/>
+          </div>
+
+          <hr className="div"/>
+          <div style={{fontSize:'0.63rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--muted)',marginBottom:8}}>Change Log</div>
+          {(f.log||[]).length===0 && <div style={{fontSize:'0.73rem',color:'var(--muted)',marginBottom:8}}>No entries yet.</div>}
+          {(f.log||[]).map((e,i)=>(
+            <div className="log-entry" key={i}>
+              <div className="log-date">{e.date}</div>
+              <div className="log-text">{e.text}</div>
+            </div>
+          ))}
+          <div className="log-add">
+            <textarea value={newLog} onChange={e=>setNewLog(e.target.value)} placeholder="Log a change or update…" onKeyDown={e=>{if(e.key==='Enter'&&e.metaKey)addLog();}}/>
+            <button className="btn btn-sm" style={{alignSelf:'flex-end'}} onClick={addLog}>Add</button>
+          </div>
+        </div>
+        <div className="drawer-ft">
+          <button className="btn btn-danger btn-sm" onClick={()=>{if(window.confirm('Delete permanently?')){onDelete(f.id);onClose();}}}>Delete</button>
+          <button className="btn btn-archive btn-sm" onClick={()=>{onArchive(f.id,'completed-archive');onClose();}} title="Move to Completed Archive">C-Archive</button>
+          <button className="btn btn-archive btn-sm" onClick={()=>{onArchive(f.id,'archive');onClose();}} title="Move to Purgatory Archive">Archive</button>
+          <button className="btn btn-sm" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary btn-sm" onClick={submit}>Save</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── PRIORITY STACK ────────────────────────────────────────────────────────
+function PriorityStack({items, setItems, onOpen}) {
+  const completedItems = React.useMemo(()=>
+    items.filter(i=>i.section==='completed'&&i.pendingMeetingClose)
+         .sort((a,b)=>(a.completedAt||'').localeCompare(b.completedAt||''))
+  ,[items]);
+
+  const activeItems = React.useMemo(()=>
+    items.filter(i=>ACTIVE_SECTIONS.find(s=>s.key===i.section))
+         .sort((a,b)=>(a.stackRank??999)-(b.stackRank??999))
+  ,[items]);
+
+  const [completedOpen, setCompletedOpen] = React.useState(true);
+  const [dragId,      setDragId]      = React.useState(null);
+  const [dropTarget,  setDropTarget]  = React.useState(null);
+  const [newTitle,    setNewTitle]    = React.useState('');
+  const [newSec,      setNewSec]      = React.useState('upnext');
+  const [showAdd,     setShowAdd]     = React.useState(false);
+
+  const handleDragStart = (e,id) => { setDragId(id); e.dataTransfer.effectAllowed='move'; };
+  const handleDragOver  = (e,id) => {
+    e.preventDefault();
+    if (id===dragId) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos  = e.clientY < rect.top+rect.height/2 ? 'above' : 'below';
+    setDropTarget({id,pos});
+  };
+  const handleDrop = (e,targetId) => {
+    e.preventDefault();
+    if (!dragId||dragId===targetId) { setDragId(null); setDropTarget(null); return; }
+    setItems(prev => {
+      const dragged     = prev.find(i=>i.id===dragId);
+      const targetItem  = prev.find(i=>i.id===targetId);
+      if (!dragged||!targetItem) return prev;
+      // Only reorder within active zone — don't allow dragging into completed zone
+      if (targetItem.section==='completed') return prev;
+      const vis     = prev.filter(i=>ACTIVE_SECTIONS.find(s=>s.key===i.section))
+                          .sort((a,b)=>(a.stackRank??999)-(b.stackRank??999));
+      const without = vis.filter(i=>i.id!==dragId);
+      const tIdx    = without.findIndex(i=>i.id===targetId);
+      const insertAt = dropTarget?.pos==='above' ? tIdx : tIdx+1;
+      without.splice(insertAt,0,dragged);
+      const rankMap = {};
+      without.forEach((item,i)=>{ rankMap[item.id]=i; });
+      return prev.map(i=> rankMap[i.id]!=null ? {...i, stackRank:rankMap[i.id]} : i);
+    });
+    setDragId(null); setDropTarget(null);
+  };
+  const handleDragEnd = () => { setDragId(null); setDropTarget(null); };
+
+  const quickAdd = () => {
+    if (!newTitle.trim()) return;
+    const maxRank = activeItems.reduce((m,i)=>Math.max(m,i.stackRank??-1),-1);
+    const item = {...blankItem(newSec), title:newTitle.trim(), stackRank: maxRank+1};
+    setItems(prev=>[...prev,item]);
+    setNewTitle(''); setShowAdd(false);
+  };
+
+  const renderRow = (item, idx, isCompleted) => {
+    const sec = SEC_MAP[item.section]||{};
+    const dt  = dropTarget?.id===item.id;
+    const showProg = !isCompleted && item.section==='ongoing' && item.progress > 0;
+    return (
+      <div
+        key={item.id}
+        className={
+          'prow'+
+          (isCompleted?' completed-row':'')+
+          (item.id===dragId?' dragging':'')+
+          (dt&&dropTarget.pos==='above'?' drag-above':'')+
+          (dt&&dropTarget.pos==='below'?' drag-below':'')
+        }
+        draggable={!isCompleted}
+        onDragStart={!isCompleted ? e=>handleDragStart(e,item.id) : undefined}
+        onDragOver={!isCompleted ? e=>handleDragOver(e,item.id) : undefined}
+        onDrop={!isCompleted ? e=>handleDrop(e,item.id) : undefined}
+        onDragEnd={!isCompleted ? handleDragEnd : undefined}
+      >
+        <div className="prow-handle" style={{color:isCompleted?'transparent':'',cursor:isCompleted?'default':'grab'}}>{isCompleted?'✓':'⠿'}</div>
+        <div className="prow-num">{isCompleted ? '✓' : idx+1}</div>
+        <div className="prow-bar" style={{background:sec.dot||'transparent'}}/>
+        <div className="prow-body" style={{cursor:'pointer'}} onClick={()=>onOpen(item)}>
+          <span className="prow-title">{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
+          {showProg && <MiniProg pct={item.progress}/>}
+          <span className={'prow-sec '+sec.badgeCls}>{sec.label}</span>
+          <span className={'prow-pri pri-'+item.priority}>{item.priority}</span>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="pstack">
+      <div className="pstack-head">
+        <span className="pstack-title">Priority Stack</span>
+        <span className="pstack-count">{activeItems.length} active{completedItems.length>0?` · ${completedItems.length} completed`:''}</span>
+        <button className="btn btn-sm btn-primary" onClick={()=>setShowAdd(s=>!s)}>＋ New Ask</button>
+      </div>
+
+      {/* ── COMPLETED ZONE ── */}
+      {completedItems.length > 0 && (
+        <>
+          <div className="pzone-header" onClick={()=>setCompletedOpen(o=>!o)}>
+            <span style={{fontSize:'0.75rem'}}>✓</span>
+            <span className="pzone-label" style={{color:'var(--completed)'}}>Completed This Cycle</span>
+            <span className="pzone-count">{completedItems.length}</span>
+            <span className="pzone-toggle">{completedOpen?'▲ collapse':'▼ expand'}</span>
+          </div>
+          {completedOpen && completedItems.map((item,idx)=>renderRow(item,idx,true))}
+          <div style={{height:1,background:'var(--border2)'}}/>
+        </>
+      )}
+
+      {/* ── ACTIVE ZONE ── */}
+      {completedItems.length > 0 && activeItems.length > 0 && (
+        <div className="pzone-header" style={{cursor:'default',pointerEvents:'none'}}>
+          <span className="pzone-label" style={{color:'var(--muted)'}}>Active Priority</span>
+          <span className="pzone-count">{activeItems.length}</span>
+        </div>
+      )}
+
+      {activeItems.length===0 && completedItems.length===0 && (
+        <div style={{padding:'20px 16px',color:'var(--muted)',fontSize:'0.78rem',textAlign:'center'}}>
+          No items in stack. Add an ask above.
+        </div>
+      )}
+
+      {activeItems.map((item,idx)=>renderRow(item,idx,false))}
+
+      {/* ── QUICK ADD ── */}
+      {showAdd && (
+        <div className="prow-add">
+          <span className="prow-add-label">Quick add:</span>
+          <div className="new-ask-row">
+            <input
+              className="new-ask-input"
+              value={newTitle}
+              onChange={e=>setNewTitle(e.target.value)}
+              placeholder="Title of new ask…"
+              onKeyDown={e=>{ if(e.key==='Enter') quickAdd(); if(e.key==='Escape'){setShowAdd(false);setNewTitle('');} }}
+              autoFocus
+            />
+            <select className="new-ask-select" value={newSec} onChange={e=>setNewSec(e.target.value)}>
+              {ACTIVE_SECTIONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+            <button className="btn btn-primary btn-sm" onClick={quickAdd}>Add</button>
+            <button className="btn btn-sm" onClick={()=>{setShowAdd(false);setNewTitle('');}}>✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── BUCKET COLUMNS ────────────────────────────────────────────────────────
+function BucketCols({items, setItems, onOpen}) {
+  const [dropCol, setDropCol] = React.useState(null);
+
+  const colItems = key => items
+    .filter(i=>i.section===key)
+    .sort((a,b)=>(a.stackRank??999)-(b.stackRank??999));
+
+  return (
+    <div className="buckets">
+      {BUCKET_COLS.map(col=>{
+        const ci = colItems(col.key);
+        return (
+          <div key={col.key} className="col"
+            onDragOver={e=>{ e.preventDefault(); setDropCol(col.key); }}
+            onDrop={e=>{ e.preventDefault(); setDropCol(null); }}
+            onDragLeave={()=>setDropCol(null)}
+          >
+            <div className="col-head" style={{borderBottomColor:col.dot}}>
+              <span className="col-dot" style={{background:col.dot}}/>
+              <span className="col-htitle">{col.label}</span>
+              <span className="col-hcount">{ci.length}</span>
+            </div>
+            <div className={'col-body'+(dropCol===col.key?' drop-over':'')}>
+              {ci.length===0 && <div style={{fontSize:'0.72rem',color:'var(--muted)',padding:'8px 4px',textAlign:'center'}}>Empty</div>}
+              {ci.map((item,idx)=>{
+                const isOngoing = item.section === 'ongoing';
+                const showProg = isOngoing && item.progress > 0;
+                return (
+                  <div key={item.id} className="bcard" style={{cursor:'pointer'}} onClick={()=>onOpen(item)}>
+                    <div className="bcard-top">
+                      <span style={{fontSize:'0.62rem',fontWeight:800,color:'var(--muted)',paddingTop:2,minWidth:14}}>{idx+1}</span>
+                      <span className="bcard-title">{item.title}</span>
+                      <span className={'bcard-pri pri-'+item.priority}>{item.priority}</span>
+                    </div>
+                    {showProg && <MiniProg pct={item.progress}/>}
+                    {item.summary && <div className="bcard-summary">{item.summary.length>80?item.summary.slice(0,80)+'…':item.summary}</div>}
+                    {(item.tags?.length>0||item.owner||item.dueDate) && (
+                      <div className="bcard-footer">
+                        {item.tags?.slice(0,2).map(t=><span key={t} className="tag">{t}</span>)}
+                        {item.owner && <span className="tag">👤 {item.owner}</span>}
+                        {item.dueDate && <span className="tag">📅 {item.dueDate}</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <button className="col-add-btn" onClick={()=>onOpen({...blankItem(col.key),_isNew:true})}>＋ Add to {col.label}</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── COMPLETED ROW ─────────────────────────────────────────────────────────
+function CompletedSection({items, onOpen}) {
+  const completed  = items.filter(i=>i.section==='completed').sort((a,b)=>(a.completedAt||'').localeCompare(b.completedAt||''));
+  const purgatory  = items.filter(i=>i.section==='purgatory').sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
+  const compArch   = items.filter(i=>i.section==='completed-archive').sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
+
+  const [showCompArch, setShowCompArch] = React.useState(false);
+
+  if (completed.length===0 && purgatory.length===0 && compArch.length===0) return null;
+
+  return (
+    <div>
+      {/* Completed */}
+      {completed.length > 0 && (
+        <div className="completed-section">
+          <div className="section-head">
+            <span className="section-label">Completed</span>
+            <div className="section-rule"/>
+            <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>Auto-archives after 30 days</span>
+          </div>
+          <div className="completed-grid">
+            {completed.map(item=>(
+              <div key={item.id} className="completed-card" style={{cursor:'pointer'}} onClick={()=>onOpen(item)}>
+                <div className="completed-card-title">{item.title}</div>
+                <div className="completed-card-date">Completed {item.completedAt||'—'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Purgatory */}
+      {purgatory.length > 0 && (
+        <div className="completed-section">
+          <div className="section-head">
+            <span className="section-label" style={{color:'#f59e0b'}}>Purgatory</span>
+            <div className="section-rule"/>
+            <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>De-prioritized — not completed</span>
+          </div>
+          <div className="completed-grid">
+            {purgatory.map(item=>(
+              <div key={item.id} className="completed-card" style={{borderLeftColor:'#f59e0b',cursor:'pointer'}} onClick={()=>onOpen(item)}>
+                <div className="completed-card-title">{item.title}</div>
+                <div className="completed-card-date">Parked {item.purgatoryAt||item.updatedAt||'—'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completed Archive (collapsed by default) */}
+      {compArch.length > 0 && (
+        <div className="completed-section">
+          <div className="section-head" style={{cursor:'pointer'}} onClick={()=>setShowCompArch(s=>!s)}>
+            <span className="section-label" style={{color:'var(--muted)'}}>Completed Archive</span>
+            <div className="section-rule"/>
+            <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>{compArch.length} items · {showCompArch?'▲ collapse':'▼ expand'}</span>
+          </div>
+          {showCompArch && (
+            <div className="completed-grid">
+              {compArch.map(item=>(
+                <div key={item.id} className="completed-card" style={{opacity:.65,cursor:'pointer'}} onClick={()=>onOpen(item)}>
+                  <div className="completed-card-title">{item.title}</div>
+                  <div className="completed-card-date">Completed {item.completedAt||'—'}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── MEETING PANEL ─────────────────────────────────────────────────────────
+function MeetingPanel({items, setItems, onCopy, onMeetingClose}) {
+  const [open, setOpen] = React.useState(false);
+  const [meeting, setMeeting] = React.useState(()=>{
+    try{const r=localStorage.getItem('sb_meeting'); return r?JSON.parse(r):{date:today(),selected:[],attendees:[],notes:''};}catch(_){return {date:today(),selected:[],attendees:[],notes:''};}
+  });
+  const [newAttendee, setNewAttendee] = React.useState('');
+
+  React.useEffect(()=>{
+    try{localStorage.setItem('sb_meeting',JSON.stringify(meeting));}catch(_){}
+  },[meeting]);
+
+  const setM = patch => setMeeting(m=>({...m,...patch}));
+  const toggleAttendee = name => {
+    const sel = meeting.selected||[];
+    setM({selected: sel.includes(name) ? sel.filter(x=>x!==name) : [...sel,name]});
+  };
+  const addAttendee = () => {
+    if (!newAttendee.trim()) return;
+    const name = newAttendee.trim();
+    if (!meeting.attendees.includes(name)) setM({attendees:[...meeting.attendees,name]});
+    setNewAttendee('');
+  };
+  const removeAttendee = name => {
+    setM({attendees:meeting.attendees.filter(x=>x!==name), selected:(meeting.selected||[]).filter(x=>x!==name)});
+  };
+
+  const handleClose = () => {
+    // Copy summary then clean up
+    const text = buildSummary(items, meeting);
+    navigator.clipboard.writeText(text).then(()=>{}).catch(()=>{});
+    onMeetingClose(meeting);
+    setOpen(false);
+  };
+
+  const selectedCount = (meeting.selected||[]).length;
+
+  return (
+    <div className="meet-bar">
+      <div className="meet-bar-handle" onClick={()=>setOpen(o=>!o)}>
+        <span style={{fontSize:'0.8rem'}}>📋</span>
+        <span className="meet-bar-label">
+          Meeting {selectedCount>0?`· ${selectedCount} attendee${selectedCount!==1?'s':''} selected`:''}
+        </span>
+        <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>{open?'▼ Collapse':'▲ Open'}</span>
+      </div>
+      {open && (
+        <div className="meet-bar-body">
+          {/* Date */}
+          <div className="mcol" style={{maxWidth:160}}>
+            <div className="mcol-label">Date</div>
+            <input
+              type="date"
+              className="meet-date-input"
+              value={meeting.date||today()}
+              onChange={e=>setM({date:e.target.value})}
+            />
+            <div style={{marginTop:10}}>
+              <button className="btn btn-success btn-sm" style={{width:'100%'}} onClick={handleClose}>
+                ✓ Complete Meeting &amp; Copy Summary
+              </button>
+            </div>
+          </div>
+
+          {/* Attendees */}
+          <div className="mcol" style={{maxWidth:300}}>
+            <div className="mcol-label">Attendees — click to select for this meeting</div>
+            <div style={{marginBottom:6}}>
+              {(meeting.attendees||[]).length===0 && <div style={{fontSize:'0.72rem',color:'var(--muted)',marginBottom:6}}>No saved attendees yet.</div>}
+              {(meeting.attendees||[]).map(name=>(
+                <span key={name} className={'attendee-chip'+((meeting.selected||[]).includes(name)?' selected':'')} onClick={()=>toggleAttendee(name)}>
+                  {name}
+                  <span
+                    style={{fontSize:'0.6rem',opacity:.5,marginLeft:2}}
+                    onClick={e=>{e.stopPropagation();removeAttendee(name);}}
+                    title="Remove from list"
+                  >✕</span>
+                </span>
+              ))}
+            </div>
+            <div className="attendee-add">
+              <input
+                value={newAttendee}
+                onChange={e=>setNewAttendee(e.target.value)}
+                placeholder="Add attendee name…"
+                onKeyDown={e=>{if(e.key==='Enter')addAttendee();}}
+              />
+              <button className="btn btn-sm" onClick={addAttendee}>Add</button>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="mcol">
+            <div className="mcol-label">Meeting Notes</div>
+            <textarea
+              style={{width:'100%',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:5,color:'var(--text)',padding:'6px 9px',fontSize:'0.78rem',fontFamily:'inherit',resize:'vertical',minHeight:80,lineHeight:1.5}}
+              value={meeting.notes||''}
+              onChange={e=>setM({notes:e.target.value})}
+              placeholder="General context or decisions…"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────
+function Toast({msg}) {
+  if (!msg) return null;
+  return <div className="toast">{msg}</div>;
+}
+
+// ── IMPORT MODAL ──────────────────────────────────────────────────────────
+function ImportModal({onClose, onImport}) {
+  const [status, setStatus] = React.useState(null); // null | {ok, msg}
+  const fileRef = React.useRef();
+
+  React.useEffect(()=>{
+    const h = e => { if(e.key==='Escape') onClose(); };
+    window.addEventListener('keydown',h);
+    return ()=>window.removeEventListener('keydown',h);
+  },[onClose]);
+
+  const parse = text => {
+    try {
+      const data = JSON.parse(text);
+      if (!Array.isArray(data.items)) { setStatus({ok:false,msg:'Invalid file — missing items array.'}); return; }
+      setStatus({ok:true, msg:`Ready — ${data.items.length} items found. This will replace your current board.`, data});
+    } catch(e) {
+      setStatus({ok:false, msg:'Could not parse JSON: '+e.message});
+    }
+  };
+
+  const handleFile = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => parse(ev.target.result);
+    reader.readAsText(file);
+  };
+
+  const handlePaste = e => parse(e.target.value);
+
+  const confirm = () => {
+    if (!status?.ok || !status.data) return;
+    onImport(status.data);
+    onClose();
+  };
+
+  return (
+    <div className="overlay-modal">
+      <div className="modal" style={{maxWidth:460}}>
+        <div className="modal-title">Import from JSON</div>
+        <div style={{fontSize:'0.78rem',color:'var(--muted)',marginBottom:14}}>
+          Select a previously exported <code style={{background:'var(--surface2)',padding:'1px 5px',borderRadius:3}}>.json</code> file, or paste JSON directly.
+        </div>
+        <div style={{marginBottom:12}}>
+          <input ref={fileRef} type="file" accept=".json,application/json" onChange={handleFile} style={{display:'none'}}/>
+          <button className="btn btn-sm" onClick={()=>fileRef.current.click()}>📂 Choose File</button>
+        </div>
+        <div className="field">
+          <label>Or paste JSON</label>
+          <textarea style={{width:'100%',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:5,color:'var(--text)',padding:'7px 9px',fontSize:'0.74rem',fontFamily:'monospace',resize:'vertical',minHeight:100,lineHeight:1.5}} onChange={handlePaste} placeholder='{"items":[…]}'/>
+        </div>
+        {status && (
+          <div style={{
+            padding:'8px 12px',borderRadius:6,fontSize:'0.77rem',marginBottom:12,
+            background: status.ok ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)',
+            border: `1px solid ${status.ok ? 'rgba(34,197,94,.3)' : 'rgba(239,68,68,.3)'}`,
+            color: status.ok ? 'var(--completed)' : '#ef4444'
+          }}>{status.ok ? '✓ ' : '✕ '}{status.msg}</div>
+        )}
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+          <button className="btn btn-sm" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary btn-sm" disabled={!status?.ok} onClick={confirm}
+            style={{opacity:status?.ok?1:0.4,cursor:status?.ok?'pointer':'default'}}>
+            Import &amp; Replace
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────
+function App() {
+  const stored = load();
+  const [items,      setItems]      = React.useState(()=> stored?.items  || []);
+  const [drawer,     setDrawer]     = React.useState(null);
+  const [toast,      setToast]      = React.useState(null);
+  const [showImport, setShowImport] = React.useState(false);
+
+  // Auto-archive completed items older than 30 days
+  React.useEffect(()=>{
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate()-30);
+    setItems(prev=>prev.map(i=>{
+      if (i.section==='completed' && !i.pendingMeetingClose && i.completedAt) {
+        const d = new Date(i.completedAt);
+        if (d < cutoff) return {...i, section:'completed-archive'};
+      }
+      return i;
+    }));
+  },[]);
+
+  React.useEffect(()=>{ persist({items}); },[items]);
+
+  const showToast = msg => { setToast(msg); setTimeout(()=>setToast(null),2200); };
+
+  const saveItem = item => {
+    setItems(prev=>{
+      const exists = prev.find(i=>i.id===item.id);
+      if (exists) return prev.map(i=>i.id===item.id?item:i);
+      // New item: assign stackRank at end of stack
+      const maxRank = stackItems(prev).reduce((m,i)=>Math.max(m,i.stackRank??-1),-1);
+      return [...prev, {...item, stackRank:maxRank+1}];
+    });
+  };
+  const deleteItem = id => setItems(p=>p.filter(i=>i.id!==id));
+  const archiveItem = (id, targetSection='archive') => setItems(p=>p.map(i=>i.id===id?{...i,section:targetSection,updatedAt:today()}:i));
+  const openItem = item => setDrawer(item);
+
+  const checkForUpdate = async () => {
+    try {
+      const res = await fetch('version.json?nocache=' + Date.now());
+      const data = await res.json();
+      const remote = String(data.version).trim();
+      if (remote !== APP_VERSION) {
+        if (window.confirm(`New version v${remote} available (you have v${APP_VERSION}). Reload now?`)) {
+          window.location.reload(true);
+        }
+      } else {
+        showToast('✓ Already on latest version (v' + APP_VERSION + ')');
+      }
+    } catch(e) {
+      showToast('Could not check for updates — are you online?');
+    }
+  };
+
+  const LS_LAST_EXPORT = 'sb_last_export';
+
+  const allTags   = React.useMemo(()=>[...new Set(items.flatMap(i=>i.tags||[]))].sort(),[items]);
+  const allOwners = React.useMemo(()=>[...new Set(items.map(i=>i.owner).filter(Boolean))].sort(),[items]);
+
+  const exportData = (silent = false) => {
+    const payload = {
+      _meta: { exportedAt: now(), version: APP_VERSION, itemCount: items.length },
+      items,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'stakeholder-board-' + today() + '.json';
+    a.click();
+    try { localStorage.setItem(LS_LAST_EXPORT, today()); } catch(_) {}
+    if (!silent) showToast('✓ Exported ' + items.length + ' items');
+  };
+
+  // Auto-export if no export in the last 4 days
+  React.useEffect(() => {
+    if (items.length === 0) return; // nothing to export on first load
+    try {
+      const last = localStorage.getItem(LS_LAST_EXPORT);
+      if (!last) { exportData(true); return; }
+      const daysSince = (new Date(today()) - new Date(last)) / (1000 * 60 * 60 * 24);
+      if (daysSince >= 4) exportData(true);
+    } catch(_) {}
+  }, []); // run once on mount
+
+  const importData = data => {
+    const sanitized = data.items.map(i => ({
+      id:       i.id       || uid(),
+      title:    i.title    || '',
+      section:  ALL_SECTIONS.find(s=>s.key===i.section) ? i.section : 'newstuff',
+      priority: PRIORITIES.includes(i.priority) ? i.priority : 'Medium',
+      summary:  i.summary  || '',
+      tags:     Array.isArray(i.tags) ? i.tags : [],
+      owner:    i.owner    || '',
+      dueDate:  i.dueDate  || '',
+      log:      Array.isArray(i.log) ? i.log : [],
+      createdAt:  i.createdAt  || today(),
+      updatedAt:  i.updatedAt  || today(),
+      completedAt: i.completedAt || null,
+      pendingMeetingClose: !!i.pendingMeetingClose,
+      stackRank: typeof i.stackRank === 'number' ? i.stackRank : 999,
+    }));
+    setItems(sanitized);
+    showToast('✓ Imported ' + sanitized.length + ' items');
+  };
+
+  const handleMeetingClose = (meeting) => {
+    // Remove pendingMeetingClose from completed items (they leave the stack)
+    setItems(prev=>prev.map(i=>
+      i.section==='completed' && i.pendingMeetingClose ? {...i, pendingMeetingClose:false} : i
+    ));
+    const text = buildSummary(items, meeting);
+    navigator.clipboard.writeText(text).then(()=>showToast('✓ Summary copied · Completed items cleared from stack')).catch(()=>showToast('✓ Meeting closed'));
+  };
+
+  return (
+    <>
+      <header className="topbar">
+        <span className="topbar-brand">Production Stakeholder Board</span>
+        <div className="topbar-sep"/>
+        <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>Drag to reorder · Open card to edit</span>
+        <div className="topbar-right">
+          <span style={{fontSize:'0.65rem',color:'var(--muted)',marginRight:4}}>v{APP_VERSION}</span>
+          <button className="btn btn-sm" onClick={checkForUpdate} title="Check for a newer version">↻ Update</button>
+          <button className="btn btn-sm" onClick={exportData} title="Download all data as JSON">⬇ Export</button>
+          <button className="btn btn-sm" onClick={()=>setShowImport(true)} title="Import from a previous JSON export">⬆ Import</button>
+        </div>
+      </header>
+
+      <div className="page">
+        <div className="section-head" style={{marginBottom:10}}>
+          <span className="section-label">Priority Stack</span>
+          <div className="section-rule"/>
+        </div>
+        <PriorityStack items={items} setItems={setItems} onOpen={openItem}/>
+
+        <div className="section-head" style={{marginBottom:10}}>
+          <span className="section-label">Active Buckets</span>
+          <div className="section-rule"/>
+        </div>
+        <BucketCols items={items} setItems={setItems} onOpen={openItem}/>
+
+        <CompletedSection items={items} onOpen={openItem}/>
+      </div>
+
+      {drawer && (
+        <ItemDrawer
+          item={drawer}
+          onClose={()=>setDrawer(null)}
+          onSave={saveItem}
+          onDelete={deleteItem}
+          onArchive={archiveItem}
+          allTags={allTags}
+          allOwners={allOwners}
+        />
+      )}
+
+      <MeetingPanel
+        items={items}
+        setItems={setItems}
+        onMeetingClose={handleMeetingClose}
+      />
+
+      {showImport && (
+        <ImportModal onClose={()=>setShowImport(false)} onImport={importData}/>
+      )}
+
+      <Toast msg={toast}/>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

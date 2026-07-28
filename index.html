@@ -63,7 +63,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .prow.dragging{opacity:.3;background:var(--surface2)}
 .prow.drag-above::before{content:'';position:absolute;top:-1px;left:0;right:0;height:2px;background:var(--accent);z-index:2}
 .prow.drag-below::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--accent);z-index:2}
-.prow.completed-row{opacity:.7}
+.prow.completed-row{border-left:3px solid var(--completed)}
+.pzone-header{display:flex;align-items:center;gap:10px;padding:7px 14px;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.pzone-header:hover{background:var(--surface3)}
+.pzone-label{font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em}
+.pzone-count{font-size:0.63rem;color:var(--muted);background:var(--surface3);border:1px solid var(--border);border-radius:20px;padding:1px 7px}
+.pzone-toggle{font-size:0.65rem;color:var(--muted);margin-left:auto}
 
 .prow-num{width:38px;flex-shrink:0;font-size:0.65rem;font-weight:800;color:var(--muted);text-align:center;padding:10px 0;border-right:1px solid var(--border)}
 .prow-bar{width:3px;flex-shrink:0;align-self:stretch}
@@ -381,12 +386,22 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
 
 // ── PRIORITY STACK ────────────────────────────────────────────────────────
 function PriorityStack({items, setItems, onOpen}) {
-  const stack = React.useMemo(()=>stackItems(items).sort((a,b)=>(a.stackRank??999)-(b.stackRank??999)),[items]);
-  const [dragId, setDragId]       = React.useState(null);
-  const [dropTarget, setDropTarget] = React.useState(null); // {id, pos:'above'|'below'}
-  const [newTitle, setNewTitle]   = React.useState('');
-  const [newSec, setNewSec]       = React.useState('upnext');
-  const [showAdd, setShowAdd]     = React.useState(false);
+  const completedItems = React.useMemo(()=>
+    items.filter(i=>i.section==='completed'&&i.pendingMeetingClose)
+         .sort((a,b)=>(a.completedAt||'').localeCompare(b.completedAt||''))
+  ,[items]);
+
+  const activeItems = React.useMemo(()=>
+    items.filter(i=>ACTIVE_SECTIONS.find(s=>s.key===i.section))
+         .sort((a,b)=>(a.stackRank??999)-(b.stackRank??999))
+  ,[items]);
+
+  const [completedOpen, setCompletedOpen] = React.useState(true);
+  const [dragId,      setDragId]      = React.useState(null);
+  const [dropTarget,  setDropTarget]  = React.useState(null);
+  const [newTitle,    setNewTitle]    = React.useState('');
+  const [newSec,      setNewSec]      = React.useState('upnext');
+  const [showAdd,     setShowAdd]     = React.useState(false);
 
   const handleDragStart = (e,id) => { setDragId(id); e.dataTransfer.effectAllowed='move'; };
   const handleDragOver  = (e,id) => {
@@ -400,19 +415,19 @@ function PriorityStack({items, setItems, onOpen}) {
     e.preventDefault();
     if (!dragId||dragId===targetId) { setDragId(null); setDropTarget(null); return; }
     setItems(prev => {
-      const dragged = prev.find(i=>i.id===dragId);
-      const target  = prev.find(i=>i.id===targetId);
-      if (!dragged||!target) return prev;
-      // Build new rank order from current visible stack
-      const vis = stackItems(prev).sort((a,b)=>(a.stackRank??999)-(b.stackRank??999));
+      const dragged     = prev.find(i=>i.id===dragId);
+      const targetItem  = prev.find(i=>i.id===targetId);
+      if (!dragged||!targetItem) return prev;
+      // Only reorder within active zone — don't allow dragging into completed zone
+      if (targetItem.section==='completed') return prev;
+      const vis     = prev.filter(i=>ACTIVE_SECTIONS.find(s=>s.key===i.section))
+                          .sort((a,b)=>(a.stackRank??999)-(b.stackRank??999));
       const without = vis.filter(i=>i.id!==dragId);
-      const tIdx = without.findIndex(i=>i.id===targetId);
+      const tIdx    = without.findIndex(i=>i.id===targetId);
       const insertAt = dropTarget?.pos==='above' ? tIdx : tIdx+1;
       without.splice(insertAt,0,dragged);
-      // Assign new stack ranks
       const rankMap = {};
       without.forEach((item,i)=>{ rankMap[item.id]=i; });
-      // Also update bucket order within same section
       return prev.map(i=> rankMap[i.id]!=null ? {...i, stackRank:rankMap[i.id]} : i);
     });
     setDragId(null); setDropTarget(null);
@@ -421,59 +436,85 @@ function PriorityStack({items, setItems, onOpen}) {
 
   const quickAdd = () => {
     if (!newTitle.trim()) return;
-    const item = {...blankItem(newSec), title:newTitle.trim(), stackRank: stack.length};
+    const maxRank = activeItems.reduce((m,i)=>Math.max(m,i.stackRank??-1),-1);
+    const item = {...blankItem(newSec), title:newTitle.trim(), stackRank: maxRank+1};
     setItems(prev=>[...prev,item]);
     setNewTitle(''); setShowAdd(false);
+  };
+
+  const renderRow = (item, idx, isCompleted) => {
+    const sec = SEC_MAP[item.section]||{};
+    const dt  = dropTarget?.id===item.id;
+    return (
+      <div
+        key={item.id}
+        className={
+          'prow'+
+          (isCompleted?' completed-row':'')+
+          (item.id===dragId?' dragging':'')+
+          (dt&&dropTarget.pos==='above'?' drag-above':'')+
+          (dt&&dropTarget.pos==='below'?' drag-below':'')
+        }
+        draggable={!isCompleted}
+        onDragStart={!isCompleted ? e=>handleDragStart(e,item.id) : undefined}
+        onDragOver={!isCompleted ? e=>handleDragOver(e,item.id) : undefined}
+        onDrop={!isCompleted ? e=>handleDrop(e,item.id) : undefined}
+        onDragEnd={!isCompleted ? handleDragEnd : undefined}
+      >
+        <div className="prow-handle" style={{color:isCompleted?'transparent':'',cursor:isCompleted?'default':'grab'}}>{isCompleted?'✓':'⠿'}</div>
+        <div className="prow-num">{isCompleted ? '✓' : idx+1}</div>
+        <div className="prow-bar" style={{background:sec.dot||'transparent'}}/>
+        <div className="prow-body">
+          <span className="prow-title">{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
+          <span className={'prow-sec '+sec.badgeCls}>{sec.label}</span>
+          <span className={'prow-pri pri-'+item.priority}>{item.priority}</span>
+        </div>
+        <div className="prow-open">
+          <button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button>
+        </div>
+      </div>
+    );
   };
 
   return (
     <div className="pstack">
       <div className="pstack-head">
         <span className="pstack-title">Priority Stack</span>
-        <span className="pstack-count">{stack.length} items</span>
+        <span className="pstack-count">{activeItems.length} active{completedItems.length>0?` · ${completedItems.length} completed`:''}</span>
         <button className="btn btn-sm btn-primary" onClick={()=>setShowAdd(s=>!s)}>＋ New Ask</button>
       </div>
 
-      {stack.length===0 && (
+      {/* ── COMPLETED ZONE ── */}
+      {completedItems.length > 0 && (
+        <>
+          <div className="pzone-header" onClick={()=>setCompletedOpen(o=>!o)}>
+            <span style={{fontSize:'0.75rem'}}>✓</span>
+            <span className="pzone-label" style={{color:'var(--completed)'}}>Completed This Cycle</span>
+            <span className="pzone-count">{completedItems.length}</span>
+            <span className="pzone-toggle">{completedOpen?'▲ collapse':'▼ expand'}</span>
+          </div>
+          {completedOpen && completedItems.map((item,idx)=>renderRow(item,idx,true))}
+          <div style={{height:1,background:'var(--border2)'}}/>
+        </>
+      )}
+
+      {/* ── ACTIVE ZONE ── */}
+      {completedItems.length > 0 && activeItems.length > 0 && (
+        <div className="pzone-header" style={{cursor:'default',pointerEvents:'none'}}>
+          <span className="pzone-label" style={{color:'var(--muted)'}}>Active Priority</span>
+          <span className="pzone-count">{activeItems.length}</span>
+        </div>
+      )}
+
+      {activeItems.length===0 && completedItems.length===0 && (
         <div style={{padding:'20px 16px',color:'var(--muted)',fontSize:'0.78rem',textAlign:'center'}}>
           No items in stack. Add an ask above.
         </div>
       )}
 
-      {stack.map((item,idx)=>{
-        const sec = SEC_MAP[item.section]||{};
-        const dt = dropTarget?.id===item.id;
-        return (
-          <div
-            key={item.id}
-            className={
-              'prow'+
-              (item.id===dragId?' dragging':'')+
-              (item.section==='completed'?' completed-row':'')+
-              (dt&&dropTarget.pos==='above'?' drag-above':'')+
-              (dt&&dropTarget.pos==='below'?' drag-below':'')
-            }
-            draggable
-            onDragStart={e=>handleDragStart(e,item.id)}
-            onDragOver={e=>handleDragOver(e,item.id)}
-            onDrop={e=>handleDrop(e,item.id)}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="prow-handle" title="Drag to reorder">⠿</div>
-            <div className="prow-num">{idx+1}</div>
-            <div className="prow-bar" style={{background:sec.dot||'transparent'}}/>
-            <div className="prow-body">
-              <span className="prow-title">{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
-              <span className={'prow-sec '+sec.badgeCls}>{sec.label}</span>
-              <span className={'prow-pri pri-'+item.priority}>{item.priority}</span>
-            </div>
-            <div className="prow-open">
-              <button className="btn btn-xs" onClick={()=>onOpen(item)}>Open</button>
-            </div>
-          </div>
-        );
-      })}
+      {activeItems.map((item,idx)=>renderRow(item,idx,false))}
 
+      {/* ── QUICK ADD ── */}
       {showAdd && (
         <div className="prow-add">
           <span className="prow-add-label">Quick add:</span>

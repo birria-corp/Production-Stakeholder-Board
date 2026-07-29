@@ -749,8 +749,8 @@ function ImportModal({onClose, onImport}) {
 
 // ── APP ───────────────────────────────────────────────────────────────────
 const LS_FS_SB = 'sb_fontsize';
-const FS_STEPS_SB = [0.85, 0.92, 1.0, 1.08, 1.16, 1.25];
-const FS_DEFAULT_SB = 2;
+const FS_STEPS_SB  = ['12px','13px','14px','15px','16px','18px','20px'];
+const FS_DEFAULT_SB = 3; // index → 15px default
 
 function App() {
   const stored = load();

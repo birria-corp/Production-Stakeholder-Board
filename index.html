@@ -187,7 +187,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.5';
+const APP_VERSION = '1.6';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -749,8 +749,8 @@ function ImportModal({onClose, onImport}) {
 
 // ── APP ───────────────────────────────────────────────────────────────────
 const LS_FS_SB = 'sb_fontsize';
-const FS_STEPS_SB  = ['12px','13px','14px','15px','16px','18px','20px'];
-const FS_DEFAULT_SB = 3; // index → 15px default
+const FS_STEPS_SB  = [75, 85, 92, 100, 108, 116, 125];
+const FS_DEFAULT_SB = 3;
 
 function App() {
   const stored = load();
@@ -762,8 +762,10 @@ function App() {
     try { const s=localStorage.getItem(LS_FS_SB); return s!=null?Number(s):FS_DEFAULT_SB; } catch(_){return FS_DEFAULT_SB;}
   });
 
-  const fsDown = () => setFsIdx(i=>{ const n=Math.max(0,i-1); try{localStorage.setItem(LS_FS_SB,n);}catch(_){} return n; });
-  const fsUp   = () => setFsIdx(i=>{ const n=Math.min(FS_STEPS_SB.length-1,i+1); try{localStorage.setItem(LS_FS_SB,n);}catch(_){} return n; });
+  const fsDown = () => setFsIdx(i=>{ const n=Math.max(0,i-1); document.documentElement.style.fontSize=FS_STEPS_SB[n]+'%'; try{localStorage.setItem(LS_FS_SB,n);}catch(_){} return n; });
+  const fsUp   = () => setFsIdx(i=>{ const n=Math.min(FS_STEPS_SB.length-1,i+1); document.documentElement.style.fontSize=FS_STEPS_SB[n]+'%'; try{localStorage.setItem(LS_FS_SB,n);}catch(_){} return n; });
+
+  React.useEffect(()=>{ document.documentElement.style.fontSize = FS_STEPS_SB[fsIdx]+'%'; },[]);
 
   // Auto-archive completed items older than 30 days
   React.useEffect(()=>{
@@ -852,7 +854,7 @@ function App() {
   };
 
   return (
-    <div style={{fontSize:FS_STEPS_SB[fsIdx]}}>
+    <>
       <header className="topbar">
         <span className="topbar-brand">Production Stakeholder Board</span>
         <div className="topbar-sep"/>
@@ -908,7 +910,7 @@ function App() {
       )}
 
       <Toast msg={toast}/>
-    </div>
+    </>
   );
 }
 

@@ -187,7 +187,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.4';
+const APP_VERSION = '1.5';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -758,17 +758,12 @@ function App() {
   const [drawer,     setDrawer]     = React.useState(null);
   const [toast,      setToast]      = React.useState(null);
   const [showImport, setShowImport] = React.useState(false);
-  const [fsIdx,      setFsIdx]      = React.useState(()=>{
+  const [fsIdx, setFsIdx] = React.useState(()=>{
     try { const s=localStorage.getItem(LS_FS_SB); return s!=null?Number(s):FS_DEFAULT_SB; } catch(_){return FS_DEFAULT_SB;}
   });
 
-  React.useEffect(()=>{
-    document.documentElement.style.fontSize = FS_STEPS_SB[fsIdx]+'rem';
-    try { localStorage.setItem(LS_FS_SB, fsIdx); } catch(_){}
-  },[fsIdx]);
-
-  const fsDown = () => setFsIdx(i=>Math.max(0,i-1));
-  const fsUp   = () => setFsIdx(i=>Math.min(FS_STEPS_SB.length-1,i+1));
+  const fsDown = () => setFsIdx(i=>{ const n=Math.max(0,i-1); try{localStorage.setItem(LS_FS_SB,n);}catch(_){} return n; });
+  const fsUp   = () => setFsIdx(i=>{ const n=Math.min(FS_STEPS_SB.length-1,i+1); try{localStorage.setItem(LS_FS_SB,n);}catch(_){} return n; });
 
   // Auto-archive completed items older than 30 days
   React.useEffect(()=>{
@@ -857,7 +852,7 @@ function App() {
   };
 
   return (
-    <>
+    <div style={{fontSize:FS_STEPS_SB[fsIdx]}}>
       <header className="topbar">
         <span className="topbar-brand">Production Stakeholder Board</span>
         <div className="topbar-sep"/>
@@ -913,7 +908,7 @@ function App() {
       )}
 
       <Toast msg={toast}/>
-    </>
+    </div>
   );
 }
 

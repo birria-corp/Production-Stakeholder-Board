@@ -23,21 +23,22 @@
 ### 1. Production Stakeholder Board
 - **Repo:** `https://github.com/spencer-thompson-2-vu/Production-Stakeholder-Board`
 - **Live URL:** `https://spencer-thompson-2-vu.github.io/Production-Stakeholder-Board`
-- **Current version:** v1.7
+- **Current version:** v2.0
 - **Files:** `index.html`, `version.json`, `README.md`, `CONTEXT.md`
 - **Stack:** Single-file HTML, React 18 via Babel standalone, localStorage
 
 **Key features:**
 - Two-zone priority stack: ✓ Completed This Cycle (collapsible) + Active Priority
 - Completed items sorted oldest→newest at top, no strikethrough, green left border
-- Active items drag-to-reorder; reorder propagates to bucket columns
-- Bucket columns: In Progress / Up Next / On Horizon (left to right)
+- Active items drag-to-reorder; click row body to open drawer; reorder propagates to bucket columns
+- Bucket columns: In Progress / Up Next / On Horizon (left to right); click card anywhere to open drawer
+- Priority stack rows show due date badge (📅) inline if set
 - Card drawer: title, bucket (Completed/In Progress/Up Next/On Horizon/Purgatory), priority, owner combo, due date, tag chips, progress slider (In Progress only), current status summary, append-only change log
 - Progress slider: 10-cell segmented yellow→green bar, shown inline on stack row and bucket card, no percentage label (hover for tooltip)
 - Sections below buckets: Completed, Purgatory, Completed Archive (collapsed), general Archive
 - Auto-archive completed items to Completed Archive after 30 days
 - Meeting panel (bottom bar): persistent attendee list, date, notes, Complete Meeting → copies summary to clipboard + clears completed from stack
-- **Copy for Slack** button (topbar, right of Import): copies active priority stack grouped by bucket (In Progress → Up Next → On Horizon → New Ask), with colored emoji bucket headers (🟠🟡🔵🟣) and priority emoji + italic priority label per item. Slack markdown formatted.
+- **Copy for Slack** button (topbar, right of Import): copies active priority stack grouped by bucket (In Progress → Up Next → On Horizon → New Ask), with colored emoji bucket headers (🟠🟡🔵🟣), bracket priority labels `[High]`, and due date if set. Header: `📋 Priority Stack - as of M/D/YY`.
 - Topbar: A− / A+ font scaling (%, persists to localStorage), v{VERSION}, ↻ Update, ⬇ Export, ⬆ Import, 📋 Copy for Slack
 - Auto-export JSON if no export in last 4 days
 - Import modal: file picker or paste, validates before replacing
@@ -112,6 +113,9 @@ if (!last || days >= 4) exportData(true); // silent=true
 ### Production Stakeholder Board
 | Version | Changes |
 |---------|---------|
+| v2.0 | Due date badge on stack rows; click-to-open rows and bucket cards; due date in Slack copy |
+| v1.9 | Copy for Slack: date header (M/D/YY) |
+| v1.8 | Copy for Slack: bracket priority labels [High], [Medium], etc. |
 | v1.7 | Copy for Slack button — grouped by bucket with color emoji headers and priority tags |
 | v1.6 | Font scaling fix — use % on documentElement |
 | v1.5 | Version bump to verify deployment pipeline |

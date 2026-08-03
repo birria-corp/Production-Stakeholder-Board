@@ -187,7 +187,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.7';
+const APP_VERSION = '1.9';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -268,17 +268,17 @@ const buildSlackCopy = (items) => {
     { key:'newstuff',label:'🟣 New Ask'     },
   ];
 
-  const priEmoji = p => ({ Critical:'🔴', High:'🟠', Medium:'🟡', Low:'⚪', Backlog:'⚫' }[p] || '');
-
-  const lines = ['*📋 Priority Stack*', ''];
+  const d = new Date();
+  const dateStr = `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
+  const lines = [`*📋 Priority Stack - as of ${dateStr}*`, ''];
 
   buckets.forEach(b => {
     const group = stack.filter(i => i.section === b.key);
     if (!group.length) return;
     lines.push(`*${b.label}*`);
-    group.forEach((item, idx) => {
+    group.forEach((item) => {
       const rank = stack.indexOf(item) + 1;
-      lines.push(`${rank}. ${priEmoji(item.priority)} ${item.title} _(${item.priority})_`);
+      lines.push(`${rank}. ${item.title} [${item.priority}]`);
     });
     lines.push('');
   });

@@ -187,7 +187,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '1.6';
+const APP_VERSION = '1.7';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -253,6 +253,37 @@ const buildSummary = (items, meeting) => {
   }
   if (meeting.notes) { lines.push('── NOTES ──'); lines.push(meeting.notes); }
   return lines.join('\n');
+};
+
+// Build Slack-formatted priority list grouped by bucket
+const buildSlackCopy = (items) => {
+  const stack = stackItems(items)
+    .filter(i => i.section !== 'completed')
+    .sort((a,b) => (a.stackRank??999)-(b.stackRank??999));
+
+  const buckets = [
+    { key:'ongoing', label:'🟠 In Progress' },
+    { key:'upnext',  label:'🟡 Up Next'     },
+    { key:'horizon', label:'🔵 On Horizon'  },
+    { key:'newstuff',label:'🟣 New Ask'     },
+  ];
+
+  const priEmoji = p => ({ Critical:'🔴', High:'🟠', Medium:'🟡', Low:'⚪', Backlog:'⚫' }[p] || '');
+
+  const lines = ['*📋 Priority Stack*', ''];
+
+  buckets.forEach(b => {
+    const group = stack.filter(i => i.section === b.key);
+    if (!group.length) return;
+    lines.push(`*${b.label}*`);
+    group.forEach((item, idx) => {
+      const rank = stack.indexOf(item) + 1;
+      lines.push(`${rank}. ${priEmoji(item.priority)} ${item.title} _(${item.priority})_`);
+    });
+    lines.push('');
+  });
+
+  return lines.join('\n').trimEnd();
 };
 
 // ── DRAWER ────────────────────────────────────────────────────────────────
@@ -870,6 +901,16 @@ function App() {
           <div className="topbar-sep"/>
           <button className="btn btn-sm" onClick={exportData}>⬇ Export</button>
           <button className="btn btn-sm" onClick={()=>setShowImport(true)}>⬆ Import</button>
+          <div className="topbar-sep"/>
+          <button className="btn btn-sm" style={{color:'#a78bfa',borderColor:'rgba(167,139,250,.4)',background:'rgba(167,139,250,.08)'}}
+            onClick={()=>{
+              const text = buildSlackCopy(items);
+              navigator.clipboard.writeText(text)
+                .then(()=>showToast('✓ Copied for Slack'))
+                .catch(()=>showToast('Copy failed'));
+            }}
+            title="Copy priority list formatted for Slack"
+          >📋 Copy for Slack</button>
         </div>
       </header>
 

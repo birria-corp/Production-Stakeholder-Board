@@ -190,7 +190,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '2.2';
+const APP_VERSION = '2.3';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -485,7 +485,7 @@ function PriorityStack({items, setItems, onOpen}) {
             <div className="prow-num">{idx+1}</div>
             <div className="prow-bar" style={{background:sec.dot||'transparent'}}/>
             <div className="prow-body" onClick={()=>onOpen(item)} style={{cursor:'pointer'}}>
-              <span className="prow-title" style={{textDecoration:isCompleted?'line-through':''}}>{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
+              <span className="prow-title">{item.title||<em style={{color:'var(--muted)'}}>Untitled</em>}</span>
               {item.dueDate && <span className="tag" style={{flexShrink:0}}>📅 {item.dueDate}</span>}
               <span className={'prow-sec '+sec.badgeCls}>{sec.label}</span>
               <span className={'prow-pri pri-'+item.priority}>{item.priority}</span>

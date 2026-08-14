@@ -190,7 +190,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.2';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -222,7 +222,7 @@ const persist = s => { try { localStorage.setItem(LS,JSON.stringify(s)); } catch
 // ── HELPERS ───────────────────────────────────────────────────────────────
 const blankItem = (section='newstuff') => ({
   id:uid(), title:'', section, priority:'Medium',
-  summary:'', tags:[], owner:'', dueDate:'', log:[],
+  summary:'', tags:[], owner:'', dueDate:'', log:[], cardInBacklog:false,
   createdAt:today(), updatedAt:today(), completedAt:null,
   pendingMeetingClose:false,
 });
@@ -367,6 +367,10 @@ function ItemDrawer({item, onClose, onSave, onDelete, onArchive}) {
             <label>Tags (comma-separated)</label>
             <input value={f.tags} onChange={e=>set('tags',e.target.value)} placeholder="Snowflake, Finance…"/>
           </div>
+          <div className="field" style={{flexDirection:'row',alignItems:'center',gap:8,marginTop:4}}>
+            <input type="checkbox" id="cardInBacklog" checked={!!f.cardInBacklog} onChange={e=>set('cardInBacklog',e.target.checked)} style={{width:14,height:14,accentColor:'#3b82f6',cursor:'pointer'}}/>
+            <label htmlFor="cardInBacklog" style={{cursor:'pointer',marginBottom:0}}>Card In Backlog</label>
+          </div>
 
           <hr className="div"/>
           <div style={{fontSize:'0.63rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--muted)',marginBottom:8}}>Change Log</div>
@@ -485,6 +489,7 @@ function PriorityStack({items, setItems, onOpen}) {
               {item.dueDate && <span className="tag" style={{flexShrink:0}}>📅 {item.dueDate}</span>}
               <span className={'prow-sec '+sec.badgeCls}>{sec.label}</span>
               <span className={'prow-pri pri-'+item.priority}>{item.priority}</span>
+              {item.cardInBacklog && <span title="Card In Backlog" style={{width:8,height:8,borderRadius:'50%',background:'#3b82f6',flexShrink:0,display:'inline-block'}}/>}
             </div>
             <div className="prow-open">
               <button className="btn btn-xs" onClick={e=>{e.stopPropagation();onOpen(item);}}>Open</button>
@@ -550,6 +555,7 @@ function BucketCols({items, setItems, onOpen}) {
                       <span style={{fontSize:'0.62rem',fontWeight:800,color:'var(--muted)',paddingTop:2,minWidth:14}}>{idx+1}</span>
                       <span className="bcard-title">{item.title}</span>
                       <span className={'bcard-pri pri-'+item.priority}>{item.priority}</span>
+                      {item.cardInBacklog && <span title="Card In Backlog" style={{width:8,height:8,borderRadius:'50%',background:'#3b82f6',flexShrink:0,display:'inline-block'}}/>}
                     </div>
                     {item.summary && <div className="bcard-summary">{item.summary.length>80?item.summary.slice(0,80)+'…':item.summary}</div>}
                     {(item.tags?.length>0||item.owner||item.dueDate) && (
@@ -870,6 +876,7 @@ function App() {
       owner:    i.owner    || '',
       dueDate:  i.dueDate  || '',
       log:      Array.isArray(i.log) ? i.log : [],
+      cardInBacklog: !!i.cardInBacklog,
       createdAt:  i.createdAt  || today(),
       updatedAt:  i.updatedAt  || today(),
       completedAt: i.completedAt || null,

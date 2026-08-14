@@ -8,7 +8,7 @@ Single-file HTML stakeholder priority tracker. No server, no dependencies beyond
 
 ## Features
 
-- **Priority Stack** — drag-to-reorder active items; click row body to open drawer; due date badge shown inline
+- **Priority Stack** — drag-to-reorder active items; click row body to open drawer; due date badge and blue backlog dot shown inline
 - **Bucket Columns** — In Progress / Up Next / On Horizon; click card to open drawer
 - **Card Drawer** — title, bucket, priority, owner, due date, tags, progress slider, append-only change log
 - **Copy for Slack** — one-click copy grouped by bucket with date header, priority labels, and due dates
@@ -24,6 +24,8 @@ Single-file HTML stakeholder priority tracker. No server, no dependencies beyond
 
 | Version | Changes |
 |---------|---------|
+| v2.2 | Card In Backlog blue dot indicator on stack rows and bucket cards; checkbox in drawer |
+| v2.1 | New app icon, favicon |
 | v2.0 | Due date badge on stack rows; click-to-open rows and bucket cards; due date in Slack copy |
 | v1.9 | Copy for Slack: date header (M/D/YY) |
 | v1.8 | Copy for Slack: bracket priority labels [High], [Medium], etc. |

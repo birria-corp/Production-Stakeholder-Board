@@ -55,10 +55,45 @@ const pullKey = async (uid, key) => {
   return false;
 };
 
-// Handle redirect result on page load
+// Handle redirect result first, then set up auth state listener
 getRedirectResult(auth).then(result => {
   if (result?.user) console.log('Redirect sign-in complete:', result.user.email);
-}).catch(e => console.error('Redirect result error', e));
+}).catch(e => {
+  console.error('Redirect result error:', e.code, e.message);
+}).finally(() => {
+  // Only set up onAuthStateChanged AFTER redirect result resolves
+  onAuthStateChanged(auth, async user => {
+    console.log('Auth state changed:', user ? user.email : 'signed out');
+    const banner = document.getElementById('fb-auth-banner');
+    const bannerMsg = document.getElementById('fb-auth-msg');
+    if (banner) {
+      banner.dataset.authed = user ? '1' : '0';
+      if (bannerMsg) bannerMsg.textContent = user ? user.email : '';
+    }
+    if (!user) return;
+    const keys = ['sb_v3','sb_meeting'];
+    for (const key of keys) {
+      const localVal = localStorage.getItem(key);
+      const snap     = await getDoc(doc(db, 'users', user.uid, 'data', key));
+      const cloudVal = snap.exists() ? snap.data().payload : null;
+      if (cloudVal && localVal && cloudVal !== localVal) {
+        const useCloud = window.confirm(
+          '"' + key + '" differs between cloud and local.
+
+OK = use cloud
+Cancel = keep local'
+        );
+        if (useCloud) { localStorage.setItem(key, cloudVal); }
+        else { await setDoc(doc(db, 'users', user.uid, 'data', key), { payload: localVal }); }
+      } else if (cloudVal && !localVal) {
+        localStorage.setItem(key, cloudVal);
+      } else if (localVal && !cloudVal) {
+        await setDoc(doc(db, 'users', user.uid, 'data', key), { payload: localVal });
+      }
+    }
+    if (window._reloadAppState) window._reloadAppState();
+  });
+});
 
 window._syncNow = async () => {
   const user = auth.currentUser;
@@ -70,33 +105,7 @@ window._syncNow = async () => {
   } catch(e) { alert('Sync failed: ' + e.message); }
 };
 
-onAuthStateChanged(auth, async user => {
-  const banner = document.getElementById('fb-auth-banner');
-  const bannerMsg = document.getElementById('fb-auth-msg');
-  if (banner) {
-    banner.dataset.authed = user ? '1' : '0';
-    if (bannerMsg) bannerMsg.textContent = user ? user.email : '';
-  }
-  if (!user) return;
-  const keys = ['sb_v3','sb_meeting'];
-  for (const key of keys) {
-    const localVal = localStorage.getItem(key);
-    const snap     = await getDoc(doc(db, 'users', user.uid, 'data', key));
-    const cloudVal = snap.exists() ? snap.data().payload : null;
-    if (cloudVal && localVal && cloudVal !== localVal) {
-      const useCloud = window.confirm(
-        '"' + key + '" differs between cloud and local.\n\nOK = use cloud\nCancel = keep local'
-      );
-      if (useCloud) { localStorage.setItem(key, cloudVal); }
-      else { await setDoc(doc(db, 'users', user.uid, 'data', key), { payload: localVal }); }
-    } else if (cloudVal && !localVal) {
-      localStorage.setItem(key, cloudVal);
-    } else if (localVal && !cloudVal) {
-      await setDoc(doc(db, 'users', user.uid, 'data', key), { payload: localVal });
-    }
-  }
-  if (window._reloadAppState) window._reloadAppState();
-});
+// Auth state handler moved into getRedirectResult.finally()
 </script>
 
 <style>
@@ -309,7 +318,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '2.5';
+const APP_VERSION = '2.6';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [

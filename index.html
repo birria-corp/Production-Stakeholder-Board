@@ -2,9 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Stakeholder Board</title>
 <link rel="manifest" href="manifest.json"/>
@@ -14,101 +11,76 @@
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script>
-(function() {
-  var firebaseConfig = {
-    apiKey: "AIzaSyBvbHnQdxvs7c_zpW-ROfg1YKAH_TWBww4",
-    authDomain: "skt-desktop-apps.firebaseapp.com",
-    projectId: "skt-desktop-apps",
-    storageBucket: "skt-desktop-apps.firebasestorage.app",
-    messagingSenderId: "670488814356",
-    appId: "1:670488814356:web:bfeffd09e98bb5fd24d801"
-  };
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-  firebase.initializeApp(firebaseConfig);
-  var auth = firebase.auth();
-  var db   = firebase.firestore();
-  var provider = new firebase.auth.GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: 'select_account' });
+const firebaseConfig = {
+  apiKey: "AIzaSyCrTmJNohK-7_t2BHx70HA6AfLmZyryLUY",
+  authDomain: "zeptrack-f8720.firebaseapp.com",
+  projectId: "zeptrack-f8720",
+  storageBucket: "zeptrack-f8720.firebasestorage.app",
+  messagingSenderId: "791166858370",
+  appId: "1:791166858370:web:9ccf77cdad85cb3689b09b"
+};
 
-  // CRITICAL: Use SESSION persistence (sessionStorage) instead of LOCAL (indexedDB)
-  // GitHub Pages COOP headers block indexedDB, causing auth state to be lost after redirect
-  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(function() {
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
 
-    window._signIn = function() { auth.signInWithRedirect(provider); };
-
-    window._signOut = function() {
-      auth.signOut().then(function() { updateBanner(null); });
-    };
-
-    function updateBanner(user) {
-      var banner = document.getElementById('fb-auth-banner');
-      var msg = document.getElementById('fb-auth-msg');
-      if (!banner) {
-        setTimeout(function() { updateBanner(user); }, 100);
-        return;
-      }
-      banner.dataset.authed = user ? '1' : '0';
-      if (msg) msg.textContent = user ? user.email : '';
-    }
-
-    function pushKey(uid, key) {
-      var val = localStorage.getItem(key);
-      if (val == null) return Promise.resolve();
-      return db.collection('users').doc(uid).collection('data').doc(key).set({ payload: val });
-    }
-
-    window._syncNow = function() {
-      var user = auth.currentUser;
-      if (!user) { alert('Sign in first.'); return; }
-      Promise.all(['sb_v3','sb_meeting'].map(function(k) { return pushKey(user.uid, k); }))
-        .then(function() { if (window._showToast) window._showToast('\u2713 Synced to cloud'); })
-        .catch(function(e) { alert('Sync failed: ' + e.message); });
-    };
-
-    function runSync(uid) {
-      var keys = ['sb_v3','sb_meeting'];
-      var chain = Promise.resolve();
-      keys.forEach(function(key) {
-        chain = chain.then(function() {
-          var localVal = localStorage.getItem(key);
-          return db.collection('users').doc(uid).collection('data').doc(key).get()
-            .then(function(snap) {
-              var cloudVal = snap.exists ? snap.data().payload : null;
-              if (cloudVal && localVal && cloudVal !== localVal) {
-                var useCloud = window.confirm('"' + key + '" differs. OK = use cloud, Cancel = keep local');
-                if (useCloud) { localStorage.setItem(key, cloudVal); }
-                else { return db.collection('users').doc(uid).collection('data').doc(key).set({ payload: localVal }); }
-              } else if (cloudVal && !localVal) {
-                localStorage.setItem(key, cloudVal);
-              } else if (localVal && !cloudVal) {
-                return db.collection('users').doc(uid).collection('data').doc(key).set({ payload: localVal });
-              }
-            });
-        });
-      });
-      chain.then(function() { if (window._reloadAppState) window._reloadAppState(); });
-    }
-
-    // Handle return from redirect
-    auth.getRedirectResult().then(function(result) {
-      if (result && result.user) {
-        runSync(result.user.uid);
-      }
-    }).catch(function(e) {
-      console.error('getRedirectResult error:', e.code, e.message);
-    });
-
-    // Single source of truth for auth state
-    auth.onAuthStateChanged(function(user) {
-      updateBanner(user);
-    });
-
-  }).catch(function(e) {
-    console.error('setPersistence error:', e);
+// Expose to window for HTML onclick handlers
+window._signIn = () => {
+  signInWithPopup(auth, provider).catch(e => {
+    console.error('signInWithPopup error:', e.code, e.message);
+    alert('Sign-in failed: ' + e.message);
   });
+};
 
-})();
+window._signOut = () => signOut(auth);
+
+const pushKey = async (uid, key) => {
+  const val = localStorage.getItem(key);
+  if (val == null) return;
+  await setDoc(doc(db, 'users', uid, 'data', key), { payload: val });
+};
+
+window._syncNow = async () => {
+  const user = auth.currentUser;
+  if (!user) { alert('Sign in first.'); return; }
+  try {
+    await Promise.all(['sb_v3', 'sb_meeting'].map(k => pushKey(user.uid, k)));
+    if (window._showToast) window._showToast('✓ Synced to cloud');
+  } catch(e) { alert('Sync failed: ' + e.message); }
+};
+
+const runSync = async (uid) => {
+  for (const key of ['sb_v3', 'sb_meeting']) {
+    const localVal = localStorage.getItem(key);
+    const snap     = await getDoc(doc(db, 'users', uid, 'data', key));
+    const cloudVal = snap.exists() ? snap.data().payload : null;
+    if (cloudVal && localVal && cloudVal !== localVal) {
+      const useCloud = window.confirm('"' + key + '" differs. OK = use cloud, Cancel = keep local');
+      if (useCloud) { localStorage.setItem(key, cloudVal); }
+      else { await setDoc(doc(db, 'users', uid, 'data', key), { payload: localVal }); }
+    } else if (cloudVal && !localVal) {
+      localStorage.setItem(key, cloudVal);
+    } else if (localVal && !cloudVal) {
+      await setDoc(doc(db, 'users', uid, 'data', key), { payload: localVal });
+    }
+  }
+  if (window._reloadAppState) window._reloadAppState();
+};
+
+onAuthStateChanged(auth, async user => {
+  const banner = document.getElementById('fb-auth-banner');
+  const msg    = document.getElementById('fb-auth-msg');
+  if (banner) banner.dataset.authed = user ? '1' : '0';
+  if (msg)    msg.textContent = user ? user.email : '';
+  if (user)   await runSync(user.uid);
+});
 </script>
 <script>
 if ('serviceWorker' in navigator) {
@@ -331,7 +303,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '3.5';
+const APP_VERSION = '3.6';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [

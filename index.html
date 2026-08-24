@@ -31,69 +31,81 @@
   var provider = new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
 
-  window._signIn = function() { auth.signInWithRedirect(provider); };
-  window._signOut = function() { auth.signOut(); };
+  // CRITICAL: Use SESSION persistence (sessionStorage) instead of LOCAL (indexedDB)
+  // GitHub Pages COOP headers block indexedDB, causing auth state to be lost after redirect
+  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(function() {
 
-  function updateBanner(user) {
-    var banner = document.getElementById('fb-auth-banner');
-    var msg = document.getElementById('fb-auth-msg');
-    if (!banner) {
-      // Banner not rendered yet — wait and retry
-      setTimeout(function() { updateBanner(user); }, 100);
-      return;
+    window._signIn = function() { auth.signInWithRedirect(provider); };
+
+    window._signOut = function() {
+      auth.signOut().then(function() { updateBanner(null); });
+    };
+
+    function updateBanner(user) {
+      var banner = document.getElementById('fb-auth-banner');
+      var msg = document.getElementById('fb-auth-msg');
+      if (!banner) {
+        setTimeout(function() { updateBanner(user); }, 100);
+        return;
+      }
+      banner.dataset.authed = user ? '1' : '0';
+      if (msg) msg.textContent = user ? user.email : '';
     }
-    banner.dataset.authed = user ? '1' : '0';
-    if (msg) msg.textContent = user ? user.email : '';
-  }
 
-  function pushKey(uid, key) {
-    var val = localStorage.getItem(key);
-    if (val == null) return Promise.resolve();
-    return db.collection('users').doc(uid).collection('data').doc(key).set({ payload: val });
-  }
+    function pushKey(uid, key) {
+      var val = localStorage.getItem(key);
+      if (val == null) return Promise.resolve();
+      return db.collection('users').doc(uid).collection('data').doc(key).set({ payload: val });
+    }
 
-  window._syncNow = function() {
-    var user = auth.currentUser;
-    if (!user) { alert('Sign in first.'); return; }
-    Promise.all(['sb_v3','sb_meeting'].map(function(k) { return pushKey(user.uid, k); }))
-      .then(function() { if (window._showToast) window._showToast('\u2713 Synced to cloud'); })
-      .catch(function(e) { alert('Sync failed: ' + e.message); });
-  };
+    window._syncNow = function() {
+      var user = auth.currentUser;
+      if (!user) { alert('Sign in first.'); return; }
+      Promise.all(['sb_v3','sb_meeting'].map(function(k) { return pushKey(user.uid, k); }))
+        .then(function() { if (window._showToast) window._showToast('\u2713 Synced to cloud'); })
+        .catch(function(e) { alert('Sync failed: ' + e.message); });
+    };
 
-  function runSync(uid) {
-    var keys = ['sb_v3','sb_meeting'];
-    var chain = Promise.resolve();
-    keys.forEach(function(key) {
-      chain = chain.then(function() {
-        var localVal = localStorage.getItem(key);
-        return db.collection('users').doc(uid).collection('data').doc(key).get()
-          .then(function(snap) {
-            var cloudVal = snap.exists ? snap.data().payload : null;
-            if (cloudVal && localVal && cloudVal !== localVal) {
-              var useCloud = window.confirm('"' + key + '" differs. OK = use cloud, Cancel = keep local');
-              if (useCloud) { localStorage.setItem(key, cloudVal); }
-              else { return db.collection('users').doc(uid).collection('data').doc(key).set({ payload: localVal }); }
-            } else if (cloudVal && !localVal) {
-              localStorage.setItem(key, cloudVal);
-            } else if (localVal && !cloudVal) {
-              return db.collection('users').doc(uid).collection('data').doc(key).set({ payload: localVal });
-            }
-          });
+    function runSync(uid) {
+      var keys = ['sb_v3','sb_meeting'];
+      var chain = Promise.resolve();
+      keys.forEach(function(key) {
+        chain = chain.then(function() {
+          var localVal = localStorage.getItem(key);
+          return db.collection('users').doc(uid).collection('data').doc(key).get()
+            .then(function(snap) {
+              var cloudVal = snap.exists ? snap.data().payload : null;
+              if (cloudVal && localVal && cloudVal !== localVal) {
+                var useCloud = window.confirm('"' + key + '" differs. OK = use cloud, Cancel = keep local');
+                if (useCloud) { localStorage.setItem(key, cloudVal); }
+                else { return db.collection('users').doc(uid).collection('data').doc(key).set({ payload: localVal }); }
+              } else if (cloudVal && !localVal) {
+                localStorage.setItem(key, cloudVal);
+              } else if (localVal && !cloudVal) {
+                return db.collection('users').doc(uid).collection('data').doc(key).set({ payload: localVal });
+              }
+            });
+        });
       });
-    });
-    chain.then(function() { if (window._reloadAppState) window._reloadAppState(); });
-  }
-
-  auth.getRedirectResult().then(function(result) {
-    if (result && result.user) {
-      runSync(result.user.uid);
+      chain.then(function() { if (window._reloadAppState) window._reloadAppState(); });
     }
-  }).catch(function(e) {
-    console.error('getRedirectResult error:', e.code, e.message);
-  });
 
-  auth.onAuthStateChanged(function(user) {
-    updateBanner(user);
+    // Handle return from redirect
+    auth.getRedirectResult().then(function(result) {
+      if (result && result.user) {
+        runSync(result.user.uid);
+      }
+    }).catch(function(e) {
+      console.error('getRedirectResult error:', e.code, e.message);
+    });
+
+    // Single source of truth for auth state
+    auth.onAuthStateChanged(function(user) {
+      updateBanner(user);
+    });
+
+  }).catch(function(e) {
+    console.error('setPersistence error:', e);
   });
 
 })();
@@ -319,7 +331,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '3.4';
+const APP_VERSION = '3.5';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [

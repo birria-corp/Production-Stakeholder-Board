@@ -1,0 +1,13 @@
+{
+  "name": "Production Stakeholder Board",
+  "short_name": "PSB",
+  "description": "Stakeholder priority tracker and meeting tool",
+  "start_url": "/Production-Stakeholder-Board/",
+  "display": "standalone",
+  "background_color": "#0d0e14",
+  "theme_color": "#0d0e14",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

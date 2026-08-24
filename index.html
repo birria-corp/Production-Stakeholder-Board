@@ -16,7 +16,7 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script>
 (function() {
-  const firebaseConfig = {
+  var firebaseConfig = {
     apiKey: "AIzaSyBvbHnQdxvs7c_zpW-ROfg1YKAH_TWBww4",
     authDomain: "skt-desktop-apps.firebaseapp.com",
     projectId: "skt-desktop-apps",
@@ -26,19 +26,37 @@
   };
 
   firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db   = firebase.firestore();
-  const provider = new firebase.auth.GoogleAuthProvider();
+  var auth = firebase.auth();
+  var db   = firebase.firestore();
+  var provider = new firebase.auth.GoogleAuthProvider();
 
-  // Expose immediately — no module scope issue
+  // Set custom parameters to force account selection
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  // Sign in — popup with redirect fallback
   window._signIn = function() {
-      auth.signInWithRedirect(provider).catch(function(e) {
-      console.error('Sign-in error', e.code, e.message);
+    auth.signInWithPopup(provider).catch(function(e) {
+      if (
+        e.code === 'auth/popup-blocked' ||
+        e.code === 'auth/popup-closed-by-user' ||
+        e.code === 'auth/cancelled-popup-request'
+      ) {
+        // Popup blocked — fall back to redirect
+        auth.signInWithRedirect(provider);
+      } else if (e.code === 'auth/web-storage-unsupported') {
+        alert('Please enable cookies/storage in your browser to sign in.');
+      } else {
+        console.error('Sign-in error:', e.code, e.message);
+        alert('Sign-in failed: ' + e.message);
+      }
     });
   };
 
   window._signOut = function() {
-    auth.signOut();
+    auth.signOut().then(function() {
+      var banner = document.getElementById('fb-auth-banner');
+      if (banner) banner.dataset.authed = '0';
+    });
   };
 
   function pushKey(uid, key) {
@@ -50,59 +68,70 @@
   window._syncNow = function() {
     var user = auth.currentUser;
     if (!user) { alert('Sign in first.'); return; }
-    Promise.all(['sb_v3','sb_meeting'].map(function(k) { return pushKey(user.uid, k); }))
+    Promise.all(['sb_v3', 'sb_meeting'].map(function(k) { return pushKey(user.uid, k); }))
       .then(function() {
         if (window._showToast) window._showToast('✓ Synced to cloud');
-        else alert('Synced to cloud');
       })
       .catch(function(e) { alert('Sync failed: ' + e.message); });
   };
 
-  // Handle redirect result then set up auth state
-  auth.getRedirectResult().then(function(result) {
-    if (result && result.user) console.log('Redirect sign-in complete:', result.user.email);
-  }).catch(function(e) {
+  // Handle redirect result (for popup-blocked fallback cases)
+  auth.getRedirectResult().catch(function(e) {
     console.error('Redirect result error:', e.code, e.message);
-  }).finally(function() {
-    auth.onAuthStateChanged(function(user) {
-      console.log('Auth state:', user ? user.email : 'signed out');
-      var banner = document.getElementById('fb-auth-banner');
-      var bannerMsg = document.getElementById('fb-auth-msg');
-      if (banner) {
-        banner.dataset.authed = user ? '1' : '0';
-        if (bannerMsg) bannerMsg.textContent = user ? user.email : '';
-      }
-      if (!user) return;
-      var keys = ['sb_v3','sb_meeting'];
-      var chain = Promise.resolve();
-      keys.forEach(function(key) {
-        chain = chain.then(function() {
-          var localVal = localStorage.getItem(key);
-          return db.collection('users').doc(user.uid).collection('data').doc(key).get()
-            .then(function(snap) {
-              var cloudVal = snap.exists ? snap.data().payload : null;
-              if (cloudVal && localVal && cloudVal !== localVal) {
-                var useCloud = window.confirm('"' + key + '" differs between cloud and local.
+  });
+
+  // Auth state — runs on every page load
+  auth.onAuthStateChanged(function(user) {
+    var banner    = document.getElementById('fb-auth-banner');
+    var bannerMsg = document.getElementById('fb-auth-msg');
+    if (!banner) return;
+    banner.dataset.authed = user ? '1' : '0';
+    if (bannerMsg) bannerMsg.textContent = user ? user.email : '';
+    if (!user) return;
+
+    // Sync Firestore ↔ localStorage
+    var keys  = ['sb_v3', 'sb_meeting'];
+    var chain = Promise.resolve();
+    keys.forEach(function(key) {
+      chain = chain.then(function() {
+        var localVal = localStorage.getItem(key);
+        return db.collection('users').doc(user.uid).collection('data').doc(key).get()
+          .then(function(snap) {
+            var cloudVal = snap.exists ? snap.data().payload : null;
+            if (cloudVal && localVal && cloudVal !== localVal) {
+              var useCloud = window.confirm('"' + key + '" differs between cloud and local.
 
 OK = use cloud
 Cancel = keep local');
-                if (useCloud) { localStorage.setItem(key, cloudVal); }
-                else { return db.collection('users').doc(user.uid).collection('data').doc(key).set({ payload: localVal }); }
-              } else if (cloudVal && !localVal) {
+              if (useCloud) {
                 localStorage.setItem(key, cloudVal);
-              } else if (localVal && !cloudVal) {
+              } else {
                 return db.collection('users').doc(user.uid).collection('data').doc(key).set({ payload: localVal });
               }
-            });
-        });
+            } else if (cloudVal && !localVal) {
+              localStorage.setItem(key, cloudVal);
+            } else if (localVal && !cloudVal) {
+              return db.collection('users').doc(user.uid).collection('data').doc(key).set({ payload: localVal });
+            }
+          });
       });
-      chain.then(function() {
-        if (window._reloadAppState) window._reloadAppState();
-      });
+    });
+    chain.then(function() {
+      if (window._reloadAppState) window._reloadAppState();
     });
   });
 
 })();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').catch(function(e) {
+      console.warn('SW registration failed:', e);
+    });
+  });
+}
+</script>
 </script>
 
 <style>
@@ -315,7 +344,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '2.9';
+const APP_VERSION = '3.0';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [

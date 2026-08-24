@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Stakeholder Board</title>
 <link rel="manifest" href="manifest.json"/>
@@ -11,9 +14,6 @@
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 (function() {
   const firebaseConfig = {
@@ -32,8 +32,7 @@
 
   // Expose immediately — no module scope issue
   window._signIn = function() {
-    console.log('_signIn called');
-    auth.signInWithRedirect(provider).catch(function(e) {
+      auth.signInWithRedirect(provider).catch(function(e) {
       console.error('Sign-in error', e.code, e.message);
     });
   };
@@ -103,7 +102,6 @@ Cancel = keep local');
     });
   });
 
-  console.log('Firebase compat loaded, window._signIn:', typeof window._signIn);
 })();
 </script>
 
@@ -290,7 +288,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 ">
   <span id="fb-auth-banner-signin" style="display:flex;align-items:center;gap:10px">
     <span>☁ Sign in to enable cloud sync</span>
-    <button onclick="console.log('btn clicked', typeof window._signIn); window._signIn ? window._signIn() : alert('Auth not ready — try again in a moment')" style="
+    <button onclick="window._signIn && window._signIn()" style="
       font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:6px;
       border:1px solid var(--border2);background:var(--surface2);color:var(--text);
       cursor:pointer;display:flex;align-items:center;gap:6px;
@@ -317,7 +315,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '2.8';
+const APP_VERSION = '2.9';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [

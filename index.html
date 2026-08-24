@@ -32,8 +32,19 @@
   provider.setCustomParameters({ prompt: 'select_account' });
 
   window._signIn = function() { auth.signInWithRedirect(provider); };
-
   window._signOut = function() { auth.signOut(); };
+
+  function updateBanner(user) {
+    var banner = document.getElementById('fb-auth-banner');
+    var msg = document.getElementById('fb-auth-msg');
+    if (!banner) {
+      // Banner not rendered yet — wait and retry
+      setTimeout(function() { updateBanner(user); }, 100);
+      return;
+    }
+    banner.dataset.authed = user ? '1' : '0';
+    if (msg) msg.textContent = user ? user.email : '';
+  }
 
   function pushKey(uid, key) {
     var val = localStorage.getItem(key);
@@ -73,31 +84,16 @@
     chain.then(function() { if (window._reloadAppState) window._reloadAppState(); });
   }
 
-  // getRedirectResult must be called on every load to complete the redirect flow
-  // onAuthStateChanged alone is not reliable after redirect on GitHub Pages
   auth.getRedirectResult().then(function(result) {
-    // result.user is set when returning from redirect, null otherwise
-    var user = (result && result.user) ? result.user : null;
-    if (user) {
-      // Coming back from Google redirect — run sync once
-      runSync(user.uid);
+    if (result && result.user) {
+      runSync(result.user.uid);
     }
-    // Always set up onAuthStateChanged after getRedirectResult resolves
-    auth.onAuthStateChanged(function(user) {
-      var banner = document.getElementById('fb-auth-banner');
-      var msg    = document.getElementById('fb-auth-msg');
-      if (banner) banner.dataset.authed = user ? '1' : '0';
-      if (msg)    msg.textContent = user ? user.email : '';
-    });
   }).catch(function(e) {
     console.error('getRedirectResult error:', e.code, e.message);
-    // Still set up auth state even if redirect result fails
-    auth.onAuthStateChanged(function(user) {
-      var banner = document.getElementById('fb-auth-banner');
-      var msg    = document.getElementById('fb-auth-msg');
-      if (banner) banner.dataset.authed = user ? '1' : '0';
-      if (msg)    msg.textContent = user ? user.email : '';
-    });
+  });
+
+  auth.onAuthStateChanged(function(user) {
+    updateBanner(user);
   });
 
 })();
@@ -323,7 +319,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '3.3';
+const APP_VERSION = '3.4';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [

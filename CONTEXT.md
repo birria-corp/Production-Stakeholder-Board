@@ -17,7 +17,7 @@
 ### 1. Production Stakeholder Board
 - **Repo:** `https://github.com/spencer-thompson-2-vu/Production-Stakeholder-Board`
 - **Live URL:** `https://spencer-thompson-2-vu.github.io/Production-Stakeholder-Board`
-- **Current version:** v2.2
+- **Current version:** v2.4
 - **Files:** `index.html`, `version.json`, `README.md`, `CONTEXT.md`
 - **Stack:** Single-file HTML, React 18 via Babel standalone, localStorage
 
@@ -33,7 +33,8 @@
 - Auto-archive completed items after 30 days
 - Meeting panel: attendee list, date, notes, Complete Meeting copies summary + clears completed from stack
 - Copy for Slack: groups active stack by bucket with emoji headers, bracket priority labels [High], due date if set, header includes M/D/YY date
-- Topbar: A−/A+ font scaling, v{VERSION}, Update, Export, Import, Copy for Slack
+- Topbar: A−/A+ font scaling, v{VERSION}, Update, Export, Import, Copy for Slack, ☁ Sync
+- Cloud Sync: Google sign-in via Firebase Auth; Firestore sync for `sb_v3` + `sb_meeting` under `users/{uid}/data/{key}`; conflict prompt on login; `sb_fontsize` always local. Firebase project: `zeptrack-f8720`
 - Auto-export JSON if no export in last 4 days
 
 ### 2. Spencer Action Items
@@ -88,6 +89,8 @@ Spencer Action Items — 3 files: `APP_VERSION` in index.html + `CACHE_VERSION` 
 ### Production Stakeholder Board
 | Version | Changes |
 |---------|---------|
+| v2.4 | Firebase Auth + Firestore cloud sync; Google sign-in banner; ☁ Sync button in topbar |
+| v2.3 | Remove strikethrough on completed stack rows |
 | v2.2 | Card In Backlog blue dot indicator on stack rows and bucket cards; checkbox in drawer |
 | v2.1 | New app icon, favicon |
 | v2.0 | Due date badge on stack rows; click-to-open rows and bucket cards; due date in Slack copy |

@@ -15,7 +15,7 @@ Single-file HTML stakeholder priority tracker. No server, no dependencies beyond
 - **Meeting Panel** — attendees, date, notes; Complete Meeting copies summary + clears completed from stack
 - **Completed / Purgatory / Archive** — auto-archive completed items after 30 days
 - **Font scaling** — A− / A+ persisted to localStorage
-- **Export / Import** — JSON backup; auto-export if no export in last 4 days
+- **Cloud Sync** — Google sign-in via Firebase Auth; Firestore sync for `sb_v3` and `sb_meeting`; conflict prompt on login; ☁ Sync button in topbar
 - **Update check** — ↻ button compares against version.json
 
 ---
@@ -24,6 +24,8 @@ Single-file HTML stakeholder priority tracker. No server, no dependencies beyond
 
 | Version | Changes |
 |---------|---------|
+| v2.4 | Firebase Auth + Firestore cloud sync; Google sign-in banner; ☁ Sync button in topbar |
+| v2.3 | Remove strikethrough on completed stack rows |
 | v2.2 | Card In Backlog blue dot indicator on stack rows and bucket cards; checkbox in drawer |
 | v2.1 | New app icon, favicon |
 | v2.0 | Due date badge on stack rows; click-to-open rows and bucket cards; due date in Slack copy |

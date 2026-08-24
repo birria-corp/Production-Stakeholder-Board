@@ -10,6 +10,90 @@
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCrTmJNohK-7_t2BHx70HA6AfLmZyryLUY",
+  authDomain: "zeptrack-f8720.firebaseapp.com",
+  projectId: "zeptrack-f8720",
+  storageBucket: "zeptrack-f8720.firebasestorage.app",
+  messagingSenderId: "791166858370",
+  appId: "1:791166858370:web:9ccf77cdad85cb3689b09b"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+window._signIn = async () => {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch(e) {
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
+      await signInWithRedirect(auth, provider);
+    } else { console.error('Sign-in error', e); }
+  }
+};
+
+window._signOut = () => signOut(auth);
+
+const pushKey = async (uid, key) => {
+  const val = localStorage.getItem(key);
+  if (val == null) return;
+  await setDoc(doc(db, 'users', uid, 'data', key), { payload: val });
+};
+
+const pullKey = async (uid, key) => {
+  const snap = await getDoc(doc(db, 'users', uid, 'data', key));
+  if (snap.exists()) { localStorage.setItem(key, snap.data().payload); return true; }
+  return false;
+};
+
+window._syncNow = async () => {
+  const user = auth.currentUser;
+  if (!user) { alert('Sign in first.'); return; }
+  try {
+    await Promise.all(['sb_v3','sb_meeting'].map(k => pushKey(user.uid, k)));
+    if (window._showToast) window._showToast('Synced to cloud');
+    else alert('Synced to cloud');
+  } catch(e) { alert('Sync failed: ' + e.message); }
+};
+
+onAuthStateChanged(auth, async user => {
+  const banner = document.getElementById('fb-auth-banner');
+  const bannerMsg = document.getElementById('fb-auth-msg');
+  if (banner) {
+    banner.dataset.authed = user ? '1' : '0';
+    if (bannerMsg) bannerMsg.textContent = user ? user.email : '';
+  }
+  if (!user) return;
+  const keys = ['sb_v3','sb_meeting'];
+  for (const key of keys) {
+    const localVal = localStorage.getItem(key);
+    const snap     = await getDoc(doc(db, 'users', user.uid, 'data', key));
+    const cloudVal = snap.exists() ? snap.data().payload : null;
+    if (cloudVal && localVal && cloudVal !== localVal) {
+      const useCloud = window.confirm(
+        '"' + key + '" differs between cloud and local.\n\nOK = use cloud\nCancel = keep local'
+      );
+      if (useCloud) { localStorage.setItem(key, cloudVal); }
+      else { await setDoc(doc(db, 'users', user.uid, 'data', key), { payload: localVal }); }
+    } else if (cloudVal && !localVal) {
+      localStorage.setItem(key, cloudVal);
+    } else if (localVal && !cloudVal) {
+      await setDoc(doc(db, 'users', user.uid, 'data', key), { payload: localVal });
+    }
+  }
+  if (window._reloadAppState) window._reloadAppState();
+});
+</script>
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -186,11 +270,41 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 </style>
 </head>
 <body>
+<div id="fb-auth-banner" data-authed="0" style="
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 16px;background:var(--surface);border-bottom:1px solid var(--border);
+  font-size:0.75rem;color:var(--muted);gap:12px;
+">
+  <span id="fb-auth-banner-signin" style="display:flex;align-items:center;gap:10px">
+    <span>☁ Sign in to enable cloud sync</span>
+    <button onclick="window._signIn && window._signIn()" style="
+      font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:6px;
+      border:1px solid var(--border2);background:var(--surface2);color:var(--text);
+      cursor:pointer;display:flex;align-items:center;gap:6px;
+    ">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="14" height="14" style="vertical-align:middle"/>
+      Sign in with Google
+    </button>
+  </span>
+  <span id="fb-auth-banner-user" style="display:none;align-items:center;gap:10px">
+    <span>☁ <span id="fb-auth-msg"></span></span>
+    <button onclick="window._signOut && window._signOut()" style="
+      font-size:0.7rem;padding:3px 10px;border-radius:6px;
+      border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;
+    ">Sign out</button>
+  </span>
+</div>
+<style>
+#fb-auth-banner[data-authed="1"] #fb-auth-banner-signin { display:none; }
+#fb-auth-banner[data-authed="1"] #fb-auth-banner-user   { display:flex; }
+#fb-auth-banner[data-authed="0"] #fb-auth-banner-signin { display:flex; }
+#fb-auth-banner[data-authed="0"] #fb-auth-banner-user   { display:none; }
+</style>
 <div id="root"></div>
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.4';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -825,6 +939,14 @@ function App() {
   React.useEffect(()=>{ persist({items}); },[items]);
 
   const showToast = msg => { setToast(msg); setTimeout(()=>setToast(null),2200); };
+  // Expose to Firebase module
+  React.useEffect(()=>{
+    window._showToast = showToast;
+    window._reloadAppState = () => {
+      const s = load();
+      if (s?.items) setItems(s.items);
+    };
+  }, []);
 
   const saveItem = item => {
     setItems(prev=>{
@@ -923,6 +1045,11 @@ function App() {
             }}
             title="Copy priority list formatted for Slack"
           >📋 Copy for Slack</button>
+          <div className="topbar-sep"/>
+          <button className="btn btn-sm" style={{color:'#60a5fa',borderColor:'rgba(96,165,250,.4)',background:'rgba(96,165,250,.08)'}}
+            onClick={()=>window._syncNow && window._syncNow()}
+            title="Sync data to cloud"
+          >☁ Sync</button>
         </div>
       </header>
 

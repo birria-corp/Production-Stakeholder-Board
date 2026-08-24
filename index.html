@@ -99,10 +99,7 @@
           .then(function(snap) {
             var cloudVal = snap.exists ? snap.data().payload : null;
             if (cloudVal && localVal && cloudVal !== localVal) {
-              var useCloud = window.confirm('"' + key + '" differs between cloud and local.
-
-OK = use cloud
-Cancel = keep local');
+              var useCloud = window.confirm('"' + key + '" differs between cloud and local.\n\nOK = use cloud\nCancel = keep local');
               if (useCloud) {
                 localStorage.setItem(key, cloudVal);
               } else {
@@ -344,7 +341,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '3.0';
+const APP_VERSION = '3.1';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [

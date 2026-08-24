@@ -1,4 +1,4 @@
-const CACHE_VERSION = '3.0';
+const CACHE_VERSION = '3.1';
 const CACHE_NAME = `psb-v${CACHE_VERSION}`;
 const NETWORK_FIRST = ['/', '/index.html', '/version.json'];
 

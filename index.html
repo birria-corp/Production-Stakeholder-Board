@@ -75,11 +75,9 @@ const runSync = async (uid) => {
 };
 
 onAuthStateChanged(auth, async user => {
-  const banner = document.getElementById('fb-auth-banner');
-  const msg    = document.getElementById('fb-auth-msg');
-  if (banner) banner.dataset.authed = user ? '1' : '0';
-  if (msg)    msg.textContent = user ? user.email : '';
-  if (user)   await runSync(user.uid);
+  window._authUser = user || null;
+  window.dispatchEvent(new CustomEvent('authChanged', { detail: user }));
+  if (user) await runSync(user.uid);
 });
 </script>
 <script>
@@ -269,41 +267,11 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 </style>
 </head>
 <body>
-<div id="fb-auth-banner" data-authed="0" style="
-  display:flex;align-items:center;justify-content:space-between;
-  padding:6px 16px;background:var(--surface);border-bottom:1px solid var(--border);
-  font-size:0.75rem;color:var(--muted);gap:12px;
-">
-  <span id="fb-auth-banner-signin" style="display:flex;align-items:center;gap:10px">
-    <span>☁ Sign in to enable cloud sync</span>
-    <button onclick="window._signIn && window._signIn()" style="
-      font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:6px;
-      border:1px solid var(--border2);background:var(--surface2);color:var(--text);
-      cursor:pointer;display:flex;align-items:center;gap:6px;
-    ">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="14" height="14" style="vertical-align:middle"/>
-      Sign in with Google
-    </button>
-  </span>
-  <span id="fb-auth-banner-user" style="display:none;align-items:center;gap:10px">
-    <span>☁ <span id="fb-auth-msg"></span></span>
-    <button onclick="window._signOut && window._signOut()" style="
-      font-size:0.7rem;padding:3px 10px;border-radius:6px;
-      border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;
-    ">Sign out</button>
-  </span>
-</div>
-<style>
-#fb-auth-banner[data-authed="1"] #fb-auth-banner-signin { display:none; }
-#fb-auth-banner[data-authed="1"] #fb-auth-banner-user   { display:flex; }
-#fb-auth-banner[data-authed="0"] #fb-auth-banner-signin { display:flex; }
-#fb-auth-banner[data-authed="0"] #fb-auth-banner-user   { display:none; }
-</style>
 <div id="root"></div>
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '3.6';
+const APP_VERSION = '3.7';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -912,7 +880,9 @@ function App() {
   const [items,      setItems]      = React.useState(()=> stored?.items  || []);
   const [drawer,     setDrawer]     = React.useState(null);
   const [toast,      setToast]      = React.useState(null);
-  const [showImport, setShowImport] = React.useState(false);
+  const [showImport,   setShowImport]   = React.useState(false);
+  const [showSettings, setShowSettings] = React.useState(false);
+  const [authUser,     setAuthUser]     = React.useState(null);
   const [fsIdx, setFsIdx] = React.useState(()=>{
     try { const s=localStorage.getItem(LS_FS_SB); return s!=null?Number(s):FS_DEFAULT_SB; } catch(_){return FS_DEFAULT_SB;}
   });
@@ -936,6 +906,14 @@ function App() {
   },[]);
 
   React.useEffect(()=>{ persist({items}); },[items]);
+
+  React.useEffect(()=>{
+    const handler = e => setAuthUser(e.detail || null);
+    window.addEventListener('authChanged', handler);
+    // Catch already-fired auth state (fast load)
+    if (window._authUser !== undefined) setAuthUser(window._authUser);
+    return () => window.removeEventListener('authChanged', handler);
+  },[]);
 
   const showToast = msg => { setToast(msg); setTimeout(()=>setToast(null),2200); };
   // Expose to Firebase module
@@ -1024,17 +1002,6 @@ function App() {
         <div className="topbar-sep"/>
         <span style={{fontSize:'0.7rem',color:'var(--muted)'}}>Drag to reorder · Open card to edit</span>
         <div className="topbar-right">
-          <div className="fs-ctrl">
-            <button className="fs-btn" onClick={fsDown} title="Decrease font size">A−</button>
-            <button className="fs-btn" onClick={fsUp}   title="Increase font size">A+</button>
-          </div>
-          <div className="topbar-sep"/>
-          <span style={{fontSize:'0.65rem',color:'var(--muted)'}}>v{APP_VERSION}</span>
-          <button className="btn btn-sm" onClick={checkForUpdate}>↻ Update</button>
-          <div className="topbar-sep"/>
-          <button className="btn btn-sm" onClick={exportData}>⬇ Export</button>
-          <button className="btn btn-sm" onClick={()=>setShowImport(true)}>⬆ Import</button>
-          <div className="topbar-sep"/>
           <button className="btn btn-sm" style={{color:'#a78bfa',borderColor:'rgba(167,139,250,.4)',background:'rgba(167,139,250,.08)'}}
             onClick={()=>{
               const text = buildSlackCopy(items);
@@ -1045,12 +1012,54 @@ function App() {
             title="Copy priority list formatted for Slack"
           >📋 Copy for Slack</button>
           <div className="topbar-sep"/>
-          <button className="btn btn-sm" style={{color:'#60a5fa',borderColor:'rgba(96,165,250,.4)',background:'rgba(96,165,250,.08)'}}
-            onClick={()=>window._syncNow && window._syncNow()}
-            title="Sync data to cloud"
-          >☁ Sync</button>
+          {authUser ? (
+            <span style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>{authUser.email}</span>
+              <button className="btn btn-sm" style={{color:'#60a5fa',borderColor:'rgba(96,165,250,.4)',background:'rgba(96,165,250,.08)'}}
+                onClick={()=>window._syncNow && window._syncNow()}
+                title="Sync data to cloud"
+              >☁ Sync</button>
+              <button className="btn btn-sm" style={{color:'var(--muted)',fontSize:'0.68rem'}}
+                onClick={()=>window._signOut && window._signOut()}
+              >Sign out</button>
+            </span>
+          ) : (
+            <button className="btn btn-sm" style={{color:'#60a5fa',borderColor:'rgba(96,165,250,.4)',background:'rgba(96,165,250,.08)'}}
+              onClick={()=>window._signIn && window._signIn()}
+            >☁ Sign in</button>
+          )}
+          <div className="topbar-sep"/>
+          <button className="btn btn-sm" onClick={()=>setShowSettings(true)} title="Settings">⚙</button>
         </div>
       </header>
+
+      {showSettings && (
+        <div className="modal-overlay" onClick={()=>setShowSettings(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:320}}>
+            <div className="modal-title">Settings</div>
+            <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:12}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:'0.75rem',color:'var(--muted)',flex:1}}>Font size</span>
+                <button className="fs-btn" onClick={fsDown}>A−</button>
+                <button className="fs-btn" onClick={fsUp}>A+</button>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:'0.75rem',color:'var(--muted)',flex:1}}>Version</span>
+                <span style={{fontSize:'0.68rem',color:'var(--muted)'}}>v{APP_VERSION}</span>
+                <button className="btn btn-sm" onClick={()=>{checkForUpdate();setShowSettings(false);}}>↻ Check</button>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:'0.75rem',color:'var(--muted)',flex:1}}>Data</span>
+                <button className="btn btn-sm" onClick={()=>{exportData();setShowSettings(false);}}>⬇ Export</button>
+                <button className="btn btn-sm" onClick={()=>{setShowImport(true);setShowSettings(false);}}>⬆ Import</button>
+              </div>
+            </div>
+            <div style={{marginTop:16,textAlign:'right'}}>
+              <button className="btn btn-sm" onClick={()=>setShowSettings(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="page">
         <div className="section-head" style={{marginBottom:10}}>

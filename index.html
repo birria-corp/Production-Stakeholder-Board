@@ -12,7 +12,7 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
@@ -34,11 +34,9 @@ const provider = new GoogleAuthProvider();
 
 window._signIn = async () => {
   try {
-    await signInWithPopup(auth, provider);
+    await signInWithRedirect(auth, provider);
   } catch(e) {
-    if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
-      await signInWithRedirect(auth, provider);
-    } else { console.error('Sign-in error', e); }
+    console.error('Sign-in error', e);
   }
 };
 
@@ -55,6 +53,11 @@ const pullKey = async (uid, key) => {
   if (snap.exists()) { localStorage.setItem(key, snap.data().payload); return true; }
   return false;
 };
+
+// Handle redirect result on page load
+getRedirectResult(auth).then(result => {
+  if (result?.user) console.log('Redirect sign-in complete:', result.user.email);
+}).catch(e => console.error('Redirect result error', e));
 
 window._syncNow = async () => {
   const user = auth.currentUser;

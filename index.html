@@ -34,12 +34,15 @@ const db   = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 window._signIn = async () => {
+  console.log('_signIn called');
   try {
+    console.log('Calling signInWithRedirect...');
     await signInWithRedirect(auth, provider);
   } catch(e) {
-    console.error('Sign-in error', e);
+    console.error('Sign-in error', e.code, e.message);
   }
 };
+console.log('window._signIn exposed:', typeof window._signIn);
 
 window._signOut = () => signOut(auth);
 
@@ -291,7 +294,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 ">
   <span id="fb-auth-banner-signin" style="display:flex;align-items:center;gap:10px">
     <span>☁ Sign in to enable cloud sync</span>
-    <button onclick="window._signIn && window._signIn()" style="
+    <button onclick="console.log('btn clicked', typeof window._signIn); window._signIn ? window._signIn() : alert('Auth not ready — try again in a moment')" style="
       font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:6px;
       border:1px solid var(--border2);background:var(--surface2);color:var(--text);
       cursor:pointer;display:flex;align-items:center;gap:6px;
@@ -318,7 +321,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '2.6';
+const APP_VERSION = '2.7';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [

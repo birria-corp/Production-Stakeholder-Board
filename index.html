@@ -29,27 +29,11 @@
   var auth = firebase.auth();
   var db   = firebase.firestore();
   var provider = new firebase.auth.GoogleAuthProvider();
-
-  // Set custom parameters to force account selection
   provider.setCustomParameters({ prompt: 'select_account' });
 
-  // Sign in — popup with redirect fallback
+  // Always use redirect — popup blocked by GitHub Pages COOP headers
   window._signIn = function() {
-    auth.signInWithPopup(provider).catch(function(e) {
-      if (
-        e.code === 'auth/popup-blocked' ||
-        e.code === 'auth/popup-closed-by-user' ||
-        e.code === 'auth/cancelled-popup-request'
-      ) {
-        // Popup blocked — fall back to redirect
-        auth.signInWithRedirect(provider);
-      } else if (e.code === 'auth/web-storage-unsupported') {
-        alert('Please enable cookies/storage in your browser to sign in.');
-      } else {
-        console.error('Sign-in error:', e.code, e.message);
-        alert('Sign-in failed: ' + e.message);
-      }
-    });
+    auth.signInWithRedirect(provider);
   };
 
   window._signOut = function() {
@@ -70,27 +54,14 @@
     if (!user) { alert('Sign in first.'); return; }
     Promise.all(['sb_v3', 'sb_meeting'].map(function(k) { return pushKey(user.uid, k); }))
       .then(function() {
-        if (window._showToast) window._showToast('✓ Synced to cloud');
+        if (window._showToast) window._showToast('\u2713 Synced to cloud');
       })
       .catch(function(e) { alert('Sync failed: ' + e.message); });
   };
 
-  // Handle redirect result (for popup-blocked fallback cases)
-  auth.getRedirectResult().catch(function(e) {
-    console.error('Redirect result error:', e.code, e.message);
-  });
-
-  // Auth state — runs on every page load
-  auth.onAuthStateChanged(function(user) {
-    var banner    = document.getElementById('fb-auth-banner');
-    var bannerMsg = document.getElementById('fb-auth-msg');
-    if (!banner) return;
-    banner.dataset.authed = user ? '1' : '0';
-    if (bannerMsg) bannerMsg.textContent = user ? user.email : '';
+  function runAuthSync(user) {
     if (!user) return;
-
-    // Sync Firestore ↔ localStorage
-    var keys  = ['sb_v3', 'sb_meeting'];
+    var keys = ['sb_v3', 'sb_meeting'];
     var chain = Promise.resolve();
     keys.forEach(function(key) {
       chain = chain.then(function() {
@@ -99,12 +70,9 @@
           .then(function(snap) {
             var cloudVal = snap.exists ? snap.data().payload : null;
             if (cloudVal && localVal && cloudVal !== localVal) {
-              var useCloud = window.confirm('"' + key + '" differs between cloud and local.\n\nOK = use cloud\nCancel = keep local');
-              if (useCloud) {
-                localStorage.setItem(key, cloudVal);
-              } else {
-                return db.collection('users').doc(user.uid).collection('data').doc(key).set({ payload: localVal });
-              }
+              var useCloud = window.confirm('"' + key + '" differs between cloud and local. OK = use cloud, Cancel = keep local');
+              if (useCloud) { localStorage.setItem(key, cloudVal); }
+              else { return db.collection('users').doc(user.uid).collection('data').doc(key).set({ payload: localVal }); }
             } else if (cloudVal && !localVal) {
               localStorage.setItem(key, cloudVal);
             } else if (localVal && !cloudVal) {
@@ -116,6 +84,35 @@
     chain.then(function() {
       if (window._reloadAppState) window._reloadAppState();
     });
+  }
+
+  function updateBanner(user) {
+    var banner = document.getElementById('fb-auth-banner');
+    var bannerMsg = document.getElementById('fb-auth-msg');
+    if (!banner) return;
+    banner.dataset.authed = user ? '1' : '0';
+    if (bannerMsg) bannerMsg.textContent = user ? user.email : '';
+  }
+
+  // Step 1: Check for redirect result first
+  auth.getRedirectResult().then(function(result) {
+    if (result && result.user) {
+      // Coming back from redirect — update banner immediately
+      updateBanner(result.user);
+      runAuthSync(result.user);
+    }
+  }).catch(function(e) {
+    console.error('Redirect result error:', e.code, e.message);
+  });
+
+  // Step 2: onAuthStateChanged handles persistent session on subsequent loads
+  auth.onAuthStateChanged(function(user) {
+    updateBanner(user);
+    // Only run sync on subsequent loads (not redirect return, handled above)
+    if (user && !sessionStorage.getItem('psb_synced')) {
+      sessionStorage.setItem('psb_synced', '1');
+      runAuthSync(user);
+    }
   });
 
 })();
@@ -341,7 +338,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '3.1';
+const APP_VERSION = '3.2';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [

@@ -271,7 +271,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '3.7';
+const APP_VERSION = '3.9';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -922,6 +922,8 @@ function App() {
     window._reloadAppState = () => {
       const s = load();
       if (s?.items) setItems(s.items);
+      const m = localStorage.getItem('sb_meeting');
+      if (m) { try { setMeeting(JSON.parse(m)); } catch(_){} }
     };
   }, []);
 
@@ -1040,7 +1042,7 @@ function App() {
             <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:12}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 <span style={{fontSize:'0.75rem',color:'var(--muted)',flex:1}}>Font size</span>
-                <button className="fs-btn" onClick={fsDown}>A−</button>
+                <button className="fs-btn" onClick={fsDown}>A-</button>
                 <button className="fs-btn" onClick={fsUp}>A+</button>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:8}}>

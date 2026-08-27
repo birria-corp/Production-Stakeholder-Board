@@ -1,8 +1,8 @@
 {
-  "name": "Production Stakeholder Board",
-  "short_name": "PSB",
-  "description": "Stakeholder priority tracker and meeting tool",
-  "start_url": "/Production-Stakeholder-Board/",
+  "name": "Spencer Action Items",
+  "short_name": "SAI",
+  "description": "Personal task manager with cloud sync",
+  "start_url": "/Spencer-Action-Items/",
   "display": "standalone",
   "background_color": "#0d0e14",
   "theme_color": "#0d0e14",

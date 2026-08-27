@@ -1,5 +1,5 @@
-const CACHE_VERSION = '3.7';
-const CACHE_NAME = `psb-v${CACHE_VERSION}`;
+const CACHE_VERSION = '1.6';
+const CACHE_NAME = `sai-v${CACHE_VERSION}`;
 const NETWORK_FIRST = ['/index.html', '/version.json'];
 
 self.addEventListener('install', e => { self.skipWaiting(); });
@@ -13,12 +13,9 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Skip non-GET requests — cache API doesn't support POST
   if (e.request.method !== 'GET') return;
-
   const url = new URL(e.request.url);
   const isNetworkFirst = NETWORK_FIRST.some(p => url.pathname.endsWith(p));
-
   if (isNetworkFirst) {
     e.respondWith(
       fetch(e.request).then(res => {

@@ -271,7 +271,7 @@ hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
 <script type="text/babel">
 
 // ── VERSION ───────────────────────────────────────────────────────────────
-const APP_VERSION = '3.9';
+const APP_VERSION = '3.10';
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
 const ACTIVE_SECTIONS = [
@@ -1036,7 +1036,7 @@ function App() {
       </header>
 
       {showSettings && (
-        <div className="modal-overlay" onClick={()=>setShowSettings(false)}>
+        <div className="overlay-modal" onClick={()=>setShowSettings(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:320}}>
             <div className="modal-title">Settings</div>
             <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:12}}>

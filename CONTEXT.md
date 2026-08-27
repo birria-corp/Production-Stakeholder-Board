@@ -17,7 +17,7 @@
 ### Production Stakeholder Board
 - **Repo:** `https://github.com/birria-corp/Production-Stakeholder-Board`
 - **Live URL:** `https://birria-corp.github.io/Production-Stakeholder-Board`
-- **Current version:** v3.10
+- **Current version:** v4.0
 - **Files:** `index.html`, `sw.js`, `manifest.json`, `icon-192.png`, `icon-512.png`, `icon-32.png`, `version.json`, `README.md`, `CONTEXT.md`
 - **Stack:** Single-file HTML, React 18 via Babel standalone, localStorage, PWA
 
@@ -86,6 +86,7 @@
 
 | Version | Changes |
 |---------|---------|
+| v4.0 | Extend font size steps — add 135%, 146%, 158% |
 | v3.10 | Fix Settings modal overlay CSS class mismatch (font buttons now work) |
 | v3.9 | Fix _reloadAppState to reload meeting state after cloud sync |
 | v3.8 | Fix font size buttons (Unicode minus broke Babel compilation) |

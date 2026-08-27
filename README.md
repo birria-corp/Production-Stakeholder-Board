@@ -51,6 +51,7 @@ Stakeholder priority tracker with cloud sync via Firebase Auth + Firestore.
 
 | Version | Changes |
 |---------|---------|
+| v4.0 | Extend font size steps — add 135%, 146%, 158% |
 | v3.10 | Fix Settings modal overlay CSS class mismatch (font buttons now work) |
 | v3.9 | Fix _reloadAppState to reload meeting state after cloud sync |
 | v3.8 | Fix font size buttons (Unicode minus broke Babel compilation) |
